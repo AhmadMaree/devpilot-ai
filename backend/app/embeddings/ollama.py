@@ -24,7 +24,7 @@ class OllamaEmbeddingProvider:
             f"{self.base_url}/api/embed",
             json={
                 "model": self.model,
-                "inputs": texts
+                "input": texts
             },
             timeout=120.0
         )
