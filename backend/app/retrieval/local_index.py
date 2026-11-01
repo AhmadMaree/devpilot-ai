@@ -19,7 +19,7 @@ class LocalVectorIndex:
     def __init__(
         self
     ):
-        self.items = list[IndexChunks] = []
+        self.items: list[IndexChunks] = []
 
 
     def add(
