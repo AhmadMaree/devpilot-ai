@@ -2,19 +2,21 @@ import { useQuery } from "@tanstack/react-query";
 import { getHealth } from "./api/api";
 import { useMemo } from "react";
 
+const isDemo = import.meta.env.VITE_APP_MODE === "demo";
 
 const App = () => {
-
+  
   const health = useQuery({
     queryKey:["health"],
     queryFn: getHealth,
+    enabled: isDemo,
     retry: false,
     refetchInterval:30000
   })
 
   const backendStatus = useMemo(() => {
     const status = health.isPending? "Checking...": health.isError? "Offline" : "Connected"
-    return status
+    return isDemo? "Demo Mode" :status
   },[health])
 
   return (
@@ -66,7 +68,7 @@ const App = () => {
       <footer>
         <span>DevPilot AI · Local Development</span>
         <span>
-          API Version: {health.data?.version ?? "Unavailable"}
+          API Version: {isDemo? "Not connected" :health.data?.version ?? "Unavailable"}
         </span>
       </footer>
     </main>

@@ -6,5 +6,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: false,
+    env: {
+      VITE_APP_MODE: "local",
+    },
   },
 });
