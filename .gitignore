@@ -34,3 +34,7 @@ coverage/
 # OS
 .DS_Store
 Thumbs.db
+
+
+# Generated local search data
+backend/data/
