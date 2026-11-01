@@ -77,7 +77,7 @@ def chunk_documents(
     return [
         chunk
         for doc in documents
-        for chunk in chunk_documents(
+        for chunk in chunk_document(
             document= doc,
             max_lines=max_lines,
             overlap_lines=overlap_lines
