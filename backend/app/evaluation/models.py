@@ -9,7 +9,7 @@ class EvaluationCase(BaseModel):
     relative_files: list[str] = Field(min_length=1)
     
 
-class EvaluationDatabase:
+class EvaluationDataset(BaseModel):
     cases : list[EvaluationCase] = Field(min_length=1)
 
 

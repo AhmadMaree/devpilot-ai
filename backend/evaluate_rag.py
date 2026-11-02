@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from app.retrieval.local_index import LocalVectorIndex
-from app.evaluation.models import EvaluationDatabase, EvaluationReport
+from app.evaluation.models import EvaluationDataset, EvaluationReport
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.evaluation.runner import evaluate_method, semantic_retriever, keyword_retriever
 
@@ -14,7 +14,9 @@ def main() -> None:
 
     index = LocalVectorIndex.load(index_path)
 
-    dataset = EvaluationDatabase.model_validate_json(
+    print(f"Loaded local index from: {dataset_path}")
+
+    dataset = EvaluationDataset.model_validate_json(
         dataset_path.read_text(encoding="utf-8")
     )
 

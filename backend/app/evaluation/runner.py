@@ -22,7 +22,7 @@ def evaluate_method(
     for case in cases:
         start = perf_counter()
 
-        paths = unique_paths(retrieve(case.query, case.repository_id))[:top_k]
+        paths = unique_paths(retrieve(case.question, case.repository_id))[:top_k]
 
         latency_ms = (perf_counter() - start) * 1000
 
@@ -59,7 +59,7 @@ def evaluate_method(
 def semantic_retriever(index, embeddings, top_k=5):
     def retrieve(query: str, repository_id: str | None = None):
         vector = embeddings.embed_texts([query])[0]
-        results = index.search(
+        results = index.serach(
             query_search=vector,
             limit=top_k,
             repo_id=repository_id
