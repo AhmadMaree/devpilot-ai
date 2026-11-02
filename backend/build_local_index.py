@@ -50,7 +50,7 @@ def main():
             for chunk in batch
         ]
 
-        embeddings = provider.embed_text(texts)
+        embeddings = provider.embed_texts(texts)
         index.add(batch, embeddings)
 
         print(
