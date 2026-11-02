@@ -1,0 +1,41 @@
+
+{
+  "cases": [
+    {
+      "id": "ingestion-001",
+      "question": "Where is the repository ingestion pipeline implemented?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/ingestion/service.py"]
+    },
+    {
+      "id": "chunking-001",
+      "question": "Which module splits source documents into overlapping chunks?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/chunking/service.py"]
+    },
+    {
+      "id": "embedding-001",
+      "question": "Where are embeddings generated using Ollama?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/embeddings/ollama.py"]
+    },
+    {
+      "id": "rag-001",
+      "question": "Which service retrieves evidence and generates repository answers?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/rag/service.py"]
+    },
+    {
+      "id": "prompt-001",
+      "question": "Where are the source-grounded RAG instructions defined?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/rag/prompts.py"]
+    },
+    {
+      "id": "vector-001",
+      "question": "Where is cosine similarity used to search indexed source chunks?",
+      "repository_id": "demo-repository",
+      "relevant_files": ["backend/app/retrieval/local_index.py"]
+    }
+  ]
+}

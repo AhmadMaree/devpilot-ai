@@ -2,6 +2,7 @@ import subprocess
 from pathlib import Path
 
 import math
+import re
 
 def ensure_clean_repositery(root: Path) -> None:
     results = subprocess.run(
@@ -47,3 +48,7 @@ def cosine_similarity(
         return 0.0
 
     return dot_product / (first_norm * second_norm)
+
+
+def tokenizer(text: str) -> list[str]:
+    return re.findall(r"[a-z0-9_]+", text.lower())
