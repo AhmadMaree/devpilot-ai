@@ -33,8 +33,8 @@ class OllamaChatProvider:
                     }
                 ],
                 "options": {
-                    "temperature": 0.1,
-                    "num_predict": 600,
+                    "temperature": 0,
+                    "num_predict": 900,
                     "num_ctx": 4096,
                 }
             },
