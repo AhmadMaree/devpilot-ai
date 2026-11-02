@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.routes import router
 from .api.ingestion import router as ingestion_router
+from .api.questions import router as questions_router
 from .core import get_settings
 
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
 
     app.include_router(router)
     app.include_router(ingestion_router)
+    app.include_router(questions_router)
 
     return app
 

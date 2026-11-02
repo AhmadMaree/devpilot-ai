@@ -1,6 +1,7 @@
 
 import httpx
 
+
 class OllamaEmbeddingProvider:
 
     def __init__(
@@ -12,7 +13,7 @@ class OllamaEmbeddingProvider:
         self.model = model
 
 
-    def embed_text(
+    def embed_texts(
         self,
         texts: list[str]
     ) -> list[list[float]]:
