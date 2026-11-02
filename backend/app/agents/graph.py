@@ -66,7 +66,7 @@ def build_investigation_graph(
             chunk = result.chunk
             evidence.append(
                 {
-                    "source_id": index,
+                    "source_id": f"S{index}",
                     "chunk_id": chunk.chunk_id,
                     "file_path": chunk.file_path,
                     "start_line": chunk.start_line,
@@ -133,21 +133,17 @@ def build_investigation_graph(
             item["source_id"] for item in evidence
         }
 
-        cited_labels = set(
-            re.findall(r"\[S(\d+)\]", answer)
-        )
-
         cited_labels = {
-            f"S{number}" for number in cited_labels
+            match.group(1)
+            for match in re.finditer(r"\[(S\d+)\]", answer)
         }
 
         if not cited_labels:
             return {
                 "review_passed": False,
                 "review_feedback": (
-                    "Answer rejected: no valid source citations. "
-                    "Use exact labels such as [S1] or [S2]. "
-                    "Do not use [0], [1], or Evidence [0]."
+                   "No valid source citations found. "
+                   "Expected [S1], [S2], etc."
                 )
             }
 
@@ -159,6 +155,7 @@ def build_investigation_graph(
                 "review_feedback": (
                     "The answer cites unknown source labels: "
                     f"{sorted(unknown_labels)}"
+                    f"Available labels: {sorted(vaild_labels)}"
                 ),
             }
 
