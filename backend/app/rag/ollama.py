@@ -22,10 +22,11 @@ class OllamaChatProvider:
                 "messages": [
                     {"role": "system", "content": SYS_PROMPT},
                     {"role": "user", "content": prompt},
+                    
                 ],
                 "options": {
                     "temperature": 0,
-                    "num_predict": 900,
+                    "num_predict": 600,
                     "num_ctx": 4096,
                 },
             },
@@ -35,6 +36,30 @@ class OllamaChatProvider:
         response.raise_for_status()
         data = response.json()
 
+        if data.get("done") is not True:
+            raise ValueError(
+                "Ollama did not complete the response"
+            )
+
+        done_reason = data.get("done_reason")
+
+        if done_reason in {"length", "max_tokens"}:
+            raise ValueError(
+                "Ollama response reached the token limit"
+            )
+        
+        if done_reason not in {None, "stop"}:
+            raise ValueError(
+                f"Unexpected Ollama completion reason: {done_reason}"
+            )
+
+        message = data.get("message")
+
+        if not isinstance(message, dict):
+            raise ValueError(
+                "Ollama returned an invalid message"
+            )
+        
         content = data["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise ValueError("Ollama returned an empty answer")
