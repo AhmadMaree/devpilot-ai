@@ -1,4 +1,3 @@
-
 from app.retrieval.local_index import SearchResult
 
 
@@ -39,10 +38,7 @@ def build_context(results: list[SearchResult]) -> str:
     return "\n\n".join(sections)
 
 
-def build_user_propmt(
-    question: str,
-    results: list[SearchResult]
-) -> str :
+def build_user_propmt(question: str, results: list[SearchResult]) -> str:
     context = build_context(results)
 
     return (

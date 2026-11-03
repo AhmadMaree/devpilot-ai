@@ -8,6 +8,7 @@ from app.core import get_settings
 
 router = APIRouter(prefix="/api/v1", tags=["Ingestion"])
 
+
 @router.post("/repositories/demo/ingest", response_model=IngestionResult)
 def ingest_demo_repository() -> IngestionResult:
     settings = get_settings()
@@ -19,17 +20,13 @@ def ingest_demo_repository() -> IngestionResult:
         )
 
     if not settings.demo_repository_path:
-        raise HTTPException(
-            status_code=400,
-            detail="Demo repository is not configured"
-        )
+        raise HTTPException(status_code=400, detail="Demo repository is not configured")
     try:
         return ingest_repository(
-            repo_path= Path(settings.demo_repository_path),
+            repo_path=Path(settings.demo_repository_path),
             repo_id="demo-repository",
         )
     except (ValueError, OSError, subprocess.CalledProcessError):
         raise HTTPException(
-            status_code=400,
-            detail="Unable to ingest the configure repository"
+            status_code=400, detail="Unable to ingest the configure repository"
         )

@@ -5,9 +5,7 @@ from .models import SourceChunk
 
 
 def chunk_document(
-    document: SourceDocument,
-    max_lines: int = 40,
-    overlap_lines: int = 5
+    document: SourceDocument, max_lines: int = 40, overlap_lines: int = 5
 ) -> list[SourceChunk]:
 
     if max_lines <= 0:
@@ -40,24 +38,19 @@ def chunk_document(
             f"{content}"
         )
 
-        chunk_id = hashlib.sha256(
-            id.encode("utf-8")
-        ).hexdigest()
-
+        chunk_id = hashlib.sha256(id.encode("utf-8")).hexdigest()
 
         chunks.append(
             SourceChunk(
-                chunk_id = chunk_id,
-                repository_id = document.repository_id,
-                commit_sha= document.commit_sha,
-                file_path= document.file_path,
-                language= document.language,
-                start_line= start_line,
-                end_line= end_line,
+                chunk_id=chunk_id,
+                repository_id=document.repository_id,
+                commit_sha=document.commit_sha,
+                file_path=document.file_path,
+                language=document.language,
+                start_line=start_line,
+                end_line=end_line,
                 content=content,
-                content_sha256= hashlib.sha256(
-                    content.encode("utf-8")
-                ).hexdigest()
+                content_sha256=hashlib.sha256(content.encode("utf-8")).hexdigest(),
             )
         )
 
@@ -65,7 +58,6 @@ def chunk_document(
             break
 
     return chunks
-
 
 
 def chunk_documents(
@@ -78,9 +70,6 @@ def chunk_documents(
         chunk
         for doc in documents
         for chunk in chunk_document(
-            document= doc,
-            max_lines=max_lines,
-            overlap_lines=overlap_lines
+            document=doc, max_lines=max_lines, overlap_lines=overlap_lines
         )
     ]
-

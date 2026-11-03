@@ -11,10 +11,7 @@ class OllamaChatProvider:
         self.base_url = base_url.rstrip("/")
         self.model = model
 
-    def generate(
-        self,
-        prompt: str 
-    ) -> str:
+    def generate(self, prompt: str) -> str:
 
         response = httpx.post(
             f"{self.base_url}/api/chat",
@@ -22,23 +19,17 @@ class OllamaChatProvider:
                 "model": self.model,
                 "stream": False,
                 "think": False,
-                "messages":[
-                    {
-                        "role": "system",
-                        "content": SYS_PROMPT
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
+                "messages": [
+                    {"role": "system", "content": SYS_PROMPT},
+                    {"role": "user", "content": prompt},
                 ],
                 "options": {
                     "temperature": 0,
                     "num_predict": 900,
                     "num_ctx": 4096,
-                }
+                },
             },
-            timeout=180.0
+            timeout=180.0,
         )
 
         response.raise_for_status()
@@ -49,6 +40,3 @@ class OllamaChatProvider:
             raise ValueError("Ollama returned an empty answer")
 
         return content.strip()
-
-
-        

@@ -5,7 +5,8 @@ from pydantic import BaseModel, Field
 
 class QuestionRequest(BaseModel):
     repository_id: str = Field(min_length=1, max_length=100)
-    question: str = Field(min_length=3 , max_length=2000)
+    question: str = Field(min_length=3, max_length=2000)
+
 
 class Citations(BaseModel):
     chunk_id: str
@@ -15,6 +16,7 @@ class Citations(BaseModel):
     start_line: int
     end_line: int
     score: float
+
 
 class QuestionsAnswer(BaseModel):
     answer: str

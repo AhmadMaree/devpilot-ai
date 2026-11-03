@@ -4,23 +4,17 @@ from pathlib import Path
 import math
 import re
 
+
 def ensure_clean_repositery(root: Path) -> None:
     results = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(root),
-            "status",
-            "--porcelain",
-            "--untracked-files=all"
-        ],
+        ["git", "-C", str(root), "status", "--porcelain", "--untracked-files=all"],
         check=True,
         text=True,
         capture_output=True,
         timeout=10,
     )
 
-    #Check uncommit chnages in repository.
+    # Check uncommit chnages in repository.
     if results.stdout.strip():
         raise ValueError(
             "Repository contains uncommitted changes. "
@@ -29,17 +23,12 @@ def ensure_clean_repositery(root: Path) -> None:
 
 
 ## check similarty (local)
-def cosine_similarity(
-    first: list[float],
-    sec: list[float]
-) -> float:
+def cosine_similarity(first: list[float], sec: list[float]) -> float:
 
     if len(first) != len(sec):
         raise ValueError("Vector dimensions do not match")
 
-    dot_product = sum(
-        a * b for a, b in zip(first, sec)
-    )
+    dot_product = sum(a * b for a, b in zip(first, sec))
 
     first_norm = math.sqrt(sum(x * x for x in first))
     second_norm = math.sqrt(sum(x * x for x in sec))

@@ -10,7 +10,7 @@ SUPPORTED_EXTENSIONS = {
     ".css": "css",
     ".scss": "scss",
     ".html": "html",
-    ".json": "json"
+    ".json": "json",
 }
 
 
@@ -42,7 +42,7 @@ IGNORED_FILENAMES = {
 }
 
 
-MAX_FILE_SIZE = 256 * 1024 ## 256 kb
+MAX_FILE_SIZE = 256 * 1024  ## 256 kb
 
 
 def get_language(path: Path) -> str | None:
@@ -53,10 +53,7 @@ def should_include_file(path: Path, root: Path) -> bool:
 
     relative = path.relative_to(root)
 
-    if any(
-        part in IGNORED_DIR
-        for part in relative.parts[:-1]
-    ):
+    if any(part in IGNORED_DIR for part in relative.parts[:-1]):
         return False
 
     filename = path.name.lower()

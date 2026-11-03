@@ -1,4 +1,3 @@
-
 import pytest
 
 from app.chunking.models import SourceChunk
@@ -41,17 +40,23 @@ def test_reciprocal_rank():
 
 
 def test_missing_relevant_files():
-    assert recall_at_k(
-        ["x.py"],
-        ["a.py"],
-        5,
-    ) == 0.0
+    assert (
+        recall_at_k(
+            ["x.py"],
+            ["a.py"],
+            5,
+        )
+        == 0.0
+    )
 
-    assert reciprocal_rank(
-        ["x.py"],
-        ["a.py"],
-        5,
-    ) == 0.0
+    assert (
+        reciprocal_rank(
+            ["x.py"],
+            ["a.py"],
+            5,
+        )
+        == 0.0
+    )
 
 
 def test_bm25_finds_matching_file():

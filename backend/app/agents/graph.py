@@ -1,9 +1,9 @@
-
 import re
 from typing import TypedDict, Protocol
 from langgraph.graph import START, END, StateGraph
 
-from app.retrieval.local_index import SearchResult 
+from app.retrieval.local_index import SearchResult
+from app.chunking.models import SourceChunk
 from app.rag.prompts import build_user_propmt
 
 
@@ -13,11 +13,12 @@ class Retriever(Protocol):
         question: str,
         repository_id: str,
         limit: int,
-    ) -> list[SearchResult]:
-        ...
+    ) -> list[SearchResult]: ...
+
 
 class Analyst(Protocol):
     def generate(self, prompt: str) -> str: ...
+
 
 class Evidence(TypedDict):
     source_id: str
@@ -28,6 +29,7 @@ class Evidence(TypedDict):
     commit_sha: str
     content: str
 
+
 class InvestigationState(TypedDict):
     question: str
     repository_id: str
@@ -36,6 +38,19 @@ class InvestigationState(TypedDict):
     answer: str
     review_passed: bool
     review_feedback: str
+    attempts: int
+    max_attempts: int
+
+
+def route_after_review(state: InvestigationState) -> str:
+    if state["review_passed"]:
+        return "end"
+    if not state["evidence"]:
+        return "end"
+    if state["attempts"] >= state["max_attempts"]:
+        return "end"
+
+    return "retry"
 
 
 def build_investigation_graph(
@@ -47,21 +62,14 @@ def build_investigation_graph(
 
         question = state["question"].strip()
 
-        return {
-            "plan": (
-                "Find source-code evidence explaining:"
-                f"{question}"
-            )
-        }
+        return {"plan": (f"Find source-code evidence explaining:{question}")}
 
     def retrieve(state: InvestigationState) -> dict:
         results = retriever.search(
-            question=state["question"],
-            repository_id=state["repository_id"],
-            limit=5
+            question=state["question"], repository_id=state["repository_id"], limit=5
         )
 
-        evidence : list[Evidence] = []
+        evidence: list[Evidence] = []
         for index, result in enumerate(results, start=1):
             chunk = result.chunk
             evidence.append(
@@ -72,24 +80,22 @@ def build_investigation_graph(
                     "start_line": chunk.start_line,
                     "end_line": chunk.end_line,
                     "commit_sha": chunk.commit_sha,
-                    "content": chunk.content
+                    "content": chunk.content,
                 }
             )
-        
-        return {
-            "evidence": evidence
-        }
+
+        return {"evidence": evidence}
 
     def analyze(state: InvestigationState) -> dict:
+        attempts = state["attempts"] + 1
+
         if not state["evidence"]:
             return {
+                "attempts": attempts,
                 "answer": (
-                "Inssufficient evidence found in the source code to answer the question."
-                )
+                    "Inssufficient evidence found in the source code to answer the question."
+                ),
             }
-
-        from app.chunking.models import SourceChunk
-        from app.retrieval.local_index import SearchResult
 
         results = []
 
@@ -103,20 +109,28 @@ def build_investigation_graph(
                 end_line=item["end_line"],
                 commit_sha=item["commit_sha"],
                 content=item["content"],
-                content_sha256="graph-evidence"
+                content_sha256="graph-evidence",
             )
             results.append(SearchResult(chunk=chunk, score=0.0))
 
-        prompt = build_user_propmt(
-            question=state["question"],
-            results=results
-        )
+        prompt = build_user_propmt(question=state["question"], results=results)
+
+        if attempts > 0:
+            valid_labels = ", ".join(
+                f"[{item['source_id']}]" for item in state["evidence"]
+            )
+
+            prompt += (
+                "\n\nYour previous response failed review.\n"
+                f"Review feedback: {state['review_feedback']}\n"
+                f"Allowed citation labels: {valid_labels}\n"
+                "Return a concise final answer with valid"
+                "citations. Do not include reasoning"
+            )
 
         answer = analyst.generate(prompt=prompt)
 
-        return {
-            "answer": answer
-        }
+        return {"attempts": attempts, "answer": answer}
 
     def reviewer(state: InvestigationState) -> dict:
         evidence = state["evidence"]
@@ -125,26 +139,18 @@ def build_investigation_graph(
         if not evidence:
             return {
                 "review_passed": False,
-                "review_feedback": (
-                    "No source evidence was found.",
-                )
+                "review_feedback": ("No source evidence was found.",),
             }
-        vaild_labels = {
-            item["source_id"] for item in evidence
-        }
+        vaild_labels = {item["source_id"] for item in evidence}
 
-        cited_labels = {
-            match.group(1)
-            for match in re.finditer(r"\[(S\d+)\]", answer)
-        }
+        cited_labels = {match.group(1) for match in re.finditer(r"\[(S\d+)\]", answer)}
 
         if not cited_labels:
             return {
                 "review_passed": False,
                 "review_feedback": (
-                   "No valid source citations found. "
-                   "Expected [S1], [S2], etc."
-                )
+                    "No valid source citations found. Expected [S1], [S2], etc."
+                ),
             }
 
         unknown_labels = cited_labels - vaild_labels
@@ -161,10 +167,9 @@ def build_investigation_graph(
 
         return {
             "review_passed": True,
-            "review_feedback":  "Citation labels refer to retrieved evidence."
+            "review_feedback": "Citation labels refer to retrieved evidence.",
         }
 
-    
     graph = StateGraph(InvestigationState)
 
     graph.add_node("planner", planner)
@@ -176,6 +181,9 @@ def build_investigation_graph(
     graph.add_edge("planner", "retrieve")
     graph.add_edge("retrieve", "analyze")
     graph.add_edge("analyze", "reviewer")
-    graph.add_edge("reviewer", END)
+
+    graph.add_conditional_edges(
+        "reviewer", route_after_review, {"retry": "analyze", "end": END}
+    )
 
     return graph.compile()

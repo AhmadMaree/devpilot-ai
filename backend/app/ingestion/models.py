@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -15,7 +14,7 @@ class SourceDocument(BaseModel):
 
 class IngestionResult(BaseModel):
     repository_id: str
-    commit_sha: str #tells us which exact revision was processed.
+    commit_sha: str  # tells us which exact revision was processed.
     documents: list[SourceDocument] = Field(default_factory=list)
     indexed_files: int = 0
     skipped_files: int = 0

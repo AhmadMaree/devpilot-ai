@@ -1,4 +1,3 @@
-
 from pydantic import BaseModel, Field
 
 
@@ -7,10 +6,10 @@ class EvaluationCase(BaseModel):
     question: str = Field(min_length=3, description="The question to be answered")
     repository_id: str
     relative_files: list[str] = Field(min_length=1)
-    
+
 
 class EvaluationDataset(BaseModel):
-    cases : list[EvaluationCase] = Field(min_length=1)
+    cases: list[EvaluationCase] = Field(min_length=1)
 
 
 class CaseResult(BaseModel):
@@ -21,6 +20,7 @@ class CaseResult(BaseModel):
     recall_at_k: float
     reciprocal_rank: float
     latency_ms: float
+
 
 class RetrievalSummary(BaseModel):
     method: str

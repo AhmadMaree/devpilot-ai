@@ -14,25 +14,21 @@ from app.retrieval.local_index import LocalVectorIndex
 router = APIRouter(prefix="/api/v1", tags=["Questions"])
 
 ##Local index
-INDEX_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "data"
-    / "local_index.json"
-)
+INDEX_PATH = Path(__file__).resolve().parents[2] / "data" / "local_index.json"
+
 
 @lru_cache
 def get_rag_services() -> RAGServices:
 
     return RAGServices(
-        index= LocalVectorIndex.load(INDEX_PATH),
+        index=LocalVectorIndex.load(INDEX_PATH),
         embeddings=OllamaEmbeddingProvider(),
-        chat=OllamaChatProvider()
+        chat=OllamaChatProvider(),
     )
 
+
 @router.post("/questions", response_model=QuestionsAnswer)
-def ask_question(
-    request: QuestionRequest
-) -> QuestionsAnswer:
+def ask_question(request: QuestionRequest) -> QuestionsAnswer:
     settings = get_settings()
 
     if settings.environment != "development":
@@ -55,17 +51,12 @@ def ask_question(
 
     try:
         return get_rag_services().answer(
-            repository_id=request.repository_id,
-            question=request.question,
-            top_k=5
+            repository_id=request.repository_id, question=request.question, top_k=5
         )
     except httpx.TimeoutException:
-        raise HTTPException(
-            status_code=504,
-            detail="Local AI server timeout"
-        ) from None
+        raise HTTPException(status_code=504, detail="Local AI server timeout") from None
     except httpx.HTTPError:
-         raise HTTPException(
+        raise HTTPException(
             status_code=503,
             detail="Local AI service is unavailable",
         ) from None
@@ -74,7 +65,3 @@ def ask_question(
             status_code=503,
             detail="RAG service could not complete the request",
         ) from None
-
-
-
-    

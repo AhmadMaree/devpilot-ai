@@ -8,25 +8,18 @@ from app.retrieval.local_index import LocalVectorIndex
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
 def main() -> None:
-    index_path = BASE_DIR /  "data"  / "local_index.json"
+    index_path = BASE_DIR / "data" / "local_index.json"
     if not index_path.is_file():
-        raise FileNotFoundError(
-            "Local index missing. Run build_local_index.py first."
-        )
+        raise FileNotFoundError("Local index missing. Run build_local_index.py first.")
 
     index = LocalVectorIndex.load(index_path)
-    retriever = RepositoryRetriever(
-        index=index,
-        embeddings=OllamaEmbeddingProvider()
-    )
+    retriever = RepositoryRetriever(index=index, embeddings=OllamaEmbeddingProvider())
 
     analyst = OllamaChatProvider()
-    
-    graph = build_investigation_graph(
-        retriever=retriever,
-        analyst=analyst
-    )
+
+    graph = build_investigation_graph(retriever=retriever, analyst=analyst)
 
     result = graph.invoke(
         {
@@ -34,8 +27,10 @@ def main() -> None:
             "repository_id": "demo-repository",
             "plan": "",
             "evidence": [],
-            "answer": "", 
-            "review_passed": False
+            "answer": "",
+            "review_passed": False,
+            "attempts": 0,
+            "max_attempts": 3,
         }
     )
 
@@ -51,6 +46,8 @@ def main() -> None:
     print("\nREVIEW")
     print("Passed:", result["review_passed"])
     print("Feedback:", result["review_feedback"])
+    print("Attempts:", result["attempts"])
+
 
 if __name__ == "__main__":
     main()

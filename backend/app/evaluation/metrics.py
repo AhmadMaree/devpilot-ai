@@ -1,10 +1,4 @@
-
-
-def recall_at_k(
-    retrieved_files: list[str],
-    relevant_files: list[str],
-    k: int
-) -> float:
+def recall_at_k(retrieved_files: list[str], relevant_files: list[str], k: int) -> float:
     if k <= 0 or not relevant_files:
         return 0.0
 
@@ -15,11 +9,9 @@ def recall_at_k(
 
 
 def reciprocal_rank(
-    retrieved_files: list[str],
-    relevant_files: list[str],
-    k: int
+    retrieved_files: list[str], relevant_files: list[str], k: int
 ) -> float:
-    if k <= 0 :
+    if k <= 0:
         return 0.0
 
     excpected_set = set(relevant_files)
@@ -31,9 +23,7 @@ def reciprocal_rank(
     return 0.0
 
 
-def mean(
-    values: list[float]
-) -> float:
+def mean(values: list[float]) -> float:
     if not values:
         return 0.0
     return sum(values) / len(values)

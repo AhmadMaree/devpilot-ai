@@ -5,6 +5,7 @@ from app.chunking.services import chunk_documents
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.retrieval.local_index import LocalVectorIndex
 
+
 def main():
 
     settings = get_settings()
@@ -17,19 +18,12 @@ def main():
 
     repo_path = Path(settings.demo_repository_path)
 
-    result = ingest_repository(
-        repo_path=repo_path,
-        repo_id="demo-repository"
-    )
+    result = ingest_repository(repo_path=repo_path, repo_id="demo-repository")
 
     print(f" Documents: {result.indexed_files}")
     print(f"Skipped Files count : {result.skipped_files}")
 
-    chunks = chunk_documents(
-        documents=result.documents,
-        max_lines=40,
-        overlap_lines=5
-    )
+    chunks = chunk_documents(documents=result.documents, max_lines=40, overlap_lines=5)
 
     print(f" Chunks : {len(chunks)}")
 
@@ -39,7 +33,7 @@ def main():
     batch_size = 8
 
     for start in range(0, len(chunks), batch_size):
-        batch = chunks[start: start + batch_size]
+        batch = chunks[start : start + batch_size]
 
         texts = [
             (
@@ -53,11 +47,7 @@ def main():
         embeddings = provider.embed_texts(texts)
         index.add(batch, embeddings)
 
-        print(
-            f"Embedded {min(start + batch_size, len(chunks))}"
-            f"/{len(chunks)} chunks"
-        )
-
+        print(f"Embedded {min(start + batch_size, len(chunks))}/{len(chunks)} chunks")
 
     output_path = Path("data/local_index.json")
     index.save(output_path)
@@ -68,4 +58,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
