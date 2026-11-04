@@ -5,6 +5,7 @@ from .api.routes import router
 from .api.ingestion import router as ingestion_router
 from .api.questions import router as questions_router
 from .api.agents import router as agent_router
+from .api.patches import router as patches_router
 from .core import get_settings
 
 
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
     app.include_router(ingestion_router)
     app.include_router(questions_router)
     app.include_router(agent_router)
+    app.include_router(patches_router)
 
     return app
 

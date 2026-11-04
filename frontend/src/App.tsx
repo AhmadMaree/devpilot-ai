@@ -4,6 +4,8 @@ import type { FormEvent } from "react";
 
 import { get_investigation , getInvestigationHistory, getSavedInvestigation } from "./api/api";
 import type { InvestigationResponse, InvestigationSummary, SavedInvestigation } from "./api/types";
+import { PatchReview } from "./components/PatchReview"
+import { PatchGenerator } from "./components/PatchGenerator";
 
 import "./App.css";
 
@@ -23,6 +25,8 @@ function App() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [proposalId, setProposalId] = useState("");
 
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -374,6 +378,14 @@ function App() {
             </section>
           </>
         )}
+
+        <section>
+          <PatchGenerator onGenerated={setProposalId} />
+
+          {proposalId.trim() && (
+            <PatchReview key={proposalId} proposalId={proposalId.trim()} />
+          )}
+        </section>
       </main>
     </div>
   );

@@ -1,5 +1,6 @@
 import httpx
-from .prompts import SYS_PROMPT, build_user_propmt
+
+from .prompts import SYS_PROMPT
 
 
 class OllamaChatProvider:
