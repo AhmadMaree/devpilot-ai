@@ -1,4 +1,5 @@
 import sqlite3
+import httpx
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -13,6 +14,14 @@ from app.repositories.validation import (
     InvalidRepositoryError,
     validate_repository_path,
 )
+
+from app.repositories.indexer import (
+    RepositoryNotFoundError,
+    index_repository,
+)
+from app.repositories.index_store import RepositoryIndexStore
+from app.embeddings.ollama import OllamaEmbeddingProvider
+
 
 
 router = APIRouter(
@@ -110,3 +119,46 @@ def unregister_repository(
             status_code=404,
             detail="Repository not found",
         )
+
+
+@router.post(
+    "/{repository_id}/index",
+    dependencies=[Depends(require_local_environment)],
+)
+def index_registered_repository(
+    repository_id: UUID,
+    store: RepositoryStore = Depends(get_repository_store),
+):
+    try:
+        return index_repository(
+            repository_id=repository_id,
+            repository_store=store,
+            index_store=RepositoryIndexStore(
+                db_path=store.db_path
+            ),
+            embeddings=OllamaEmbeddingProvider(),
+        )
+
+    except RepositoryNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Repository not found",
+        ) from None
+
+    except httpx.TimeoutException:
+        raise HTTPException(
+            status_code=504,
+            detail="Embedding service timed out",
+        ) from None
+
+    except httpx.HTTPError:
+        raise HTTPException(
+            status_code=503,
+            detail="Embedding service is unavailable",
+        ) from None
+
+    except (ValueError, OSError) as exc:
+        raise HTTPException(
+            status_code=422,
+            detail=str(exc),
+        ) from exc
