@@ -303,7 +303,7 @@ def generate_patch_proposal(
     saved = store.create(proposal)
     return {
         **saved,
-        diff: diff
+        "diff": diff,
     }
 
     

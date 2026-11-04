@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -19,7 +20,7 @@ class PatchProposalStore:
         return connection
     
     def initialize(self) -> None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             connection.execute("""
 
             CREATE TABLE IF NOT EXISTS patch_proposals(
@@ -40,7 +41,7 @@ class PatchProposalStore:
     ) -> dict:
         proposal_id = str(uuid4())
         created_at = datetime.now(UTC).isoformat()
-        with self._connect() as conn:
+        with closing(self._connect()) as conn, conn:
             conn.execute("""
             
             INSERT INTO patch_proposals(
@@ -48,11 +49,11 @@ class PatchProposalStore:
                 replacement_content, explanation, status, created_at
             )
             VALUES (?,?,?,?,?,?,'pending',?)
-            """,{
+            """,(
                 proposal_id,proposal.repository_id,proposal.file_path,
                 proposal.expected_sha256,proposal.replacement_content,
                 proposal.explanation,created_at
-            })
+            ))
 
         return {
             "id": proposal_id,
@@ -64,10 +65,10 @@ class PatchProposalStore:
         self,
         proposal_id: str
     ) -> dict | None:
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             row = connection.execute("""
             SELECT * FROM patch_proposals WHERE id = ?
-            """,{proposal_id}).fetchone()
+            """,(proposal_id,)).fetchone()
 
         return dict(row) if row else None
 
@@ -78,18 +79,18 @@ class PatchProposalStore:
         new_status: str,
     ) -> bool:
         
-        with self._connect() as connection:
+        with closing(self._connect()) as connection, connection:
             cur = connection.execute(
                 """
                 UPDATE patch_proposals
                 SET status = ?
                 WHERE id = ? AND status = ?
                 """,
-                {
+                (
                     new_status,
                     proposal_id,
                     expected_status
-                }
+                )
             )
         return cur.rowcount == 1
 
