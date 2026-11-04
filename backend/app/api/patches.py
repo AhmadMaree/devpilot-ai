@@ -18,7 +18,8 @@ from app.patches.generation import (
     generate_patch
 )
 
-from app.patches.ollama_provider import OllamaPatchProvider
+from app.llm.factory import LLMProviderFactory
+from app.llm.store import LLMSelectionStore
 
 logger = logging.getLogger(__name__)
 
@@ -261,7 +262,11 @@ def generate_patch_proposal(
             detail="Repository not found",
         )
 
-    provider = OllamaPatchProvider()
+    selection = LLMSelectionStore().get(
+        fallback=get_settings().llm_selection
+    )
+
+    provider = LLMProviderFactory(selection).create_patch_provider()
 
     try:
         proposal = generate_patch(

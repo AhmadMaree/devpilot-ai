@@ -6,6 +6,7 @@ import { get_investigation , getInvestigationHistory, getSavedInvestigation } fr
 import type { InvestigationResponse, InvestigationSummary, SavedInvestigation } from "./api/types";
 import { PatchReview } from "./components/PatchReview"
 import { PatchGenerator } from "./components/PatchGenerator";
+import { LLMModelSelector } from "./components/LLMModelSelector";
 
 import "./App.css";
 
@@ -385,6 +386,10 @@ function App() {
           {proposalId.trim() && (
             <PatchReview key={proposalId} proposalId={proposalId.trim()} />
           )}
+        </section>
+
+        <section>
+          <LLMModelSelector />
         </section>
       </main>
     </div>

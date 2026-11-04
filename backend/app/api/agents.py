@@ -17,7 +17,9 @@ from app.agents.models import (
 from app.agents.retriever import RepositoryRetriever
 from app.core import get_settings
 from app.embeddings.ollama import OllamaEmbeddingProvider
-from app.rag.ollama import OllamaChatProvider
+from app.llm.factory import OllamaChatProvider, LLMProviderFactory
+from app.llm.models import LLMSelection
+from app.llm.store import LLMSelectionStore
 from app.retrieval.local_index import LocalVectorIndex
 from app.storage.investigations import InvestigationStore
 
@@ -30,8 +32,11 @@ INDEX_PATH = (
     / "local_index.json"
 )
 
-@lru_cache(maxsize=1)
-def get_investigation_graph():
+@lru_cache(maxsize=8)
+def get_investigation_graph(
+    provider: str = "ollama",
+    model: str = "qwen3:4b",
+):
     index = LocalVectorIndex.load(INDEX_PATH)
 
     retreiver = RepositoryRetriever(
@@ -39,7 +44,12 @@ def get_investigation_graph():
         embeddings=OllamaEmbeddingProvider()
     )
 
-    anylze = OllamaChatProvider(model="qwen3:4b")
+    selection = LLMSelection(
+        provider=provider,
+        model=model,
+    )
+
+    anylze = LLMProviderFactory(selection).create_text_provider()
 
     graph = build_investigation_graph(
         retriever=retreiver,
@@ -61,6 +71,9 @@ def investigate(
     store: InvestigationStore = Depends(get_investigation_store)
 ) -> SavedInvestigation:
     settings = get_settings()
+    selection = LLMSelectionStore().get(
+            fallback=settings.llm_selection
+        )
 
     # Local development endpoint only.
     if settings.environment != "development":
@@ -83,7 +96,10 @@ def investigate(
         )
 
     try:
-        graph = get_investigation_graph()
+        graph = get_investigation_graph(
+            provider=selection.provider.value,
+            model=selection.model,
+        )
 
         result = graph.invoke(
             {

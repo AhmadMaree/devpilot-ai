@@ -6,6 +6,8 @@ from .api.ingestion import router as ingestion_router
 from .api.questions import router as questions_router
 from .api.agents import router as agent_router
 from .api.patches import router as patches_router
+from .api.llm import router as llm_router
+from app.api.repositories import router as repositories_router
 from .core import get_settings
 
 
@@ -18,7 +20,7 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
         allow_headers=["Content-Type"],
-        allow_methods=["GET", "POST"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_credentials=False,
     )
 
@@ -27,6 +29,8 @@ def create_app() -> FastAPI:
     app.include_router(questions_router)
     app.include_router(agent_router)
     app.include_router(patches_router)
+    app.include_router(llm_router)
+    app.include_router(repositories_router)
 
     return app
 
