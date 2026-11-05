@@ -3,13 +3,15 @@ import type {
   DevelopmentWorkflowResponse,
 } from "./types";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export async function runDevelopmentWorkflow(
   request: DevelopmentWorkflowRequest,
   signal?: AbortSignal,
 ): Promise<DevelopmentWorkflowResponse> {
   const response = await fetch(
-    "/api/v1/development/workflows",
+    `${API_BASE_URL}/api/v1/development/workflows`,
     {
       method: "POST",
       headers: {
