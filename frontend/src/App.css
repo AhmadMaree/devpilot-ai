@@ -493,3 +493,69 @@ button:disabled {
     overflow-y: auto;
   }
 }
+
+
+
+.github-import {
+  display: grid;
+  gap: 14px;
+}
+
+.github-import p {
+  margin: 0;
+  color: #6b778b;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.github-import form {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+}
+
+.github-import .github-import-field {
+  flex: 1;
+  min-width: 0;
+}
+
+.github-import label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.github-import input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #d7deea;
+  border-radius: 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.github-import input:focus {
+  outline: 2px solid #9cafff;
+  border-color: #506cf0;
+}
+
+.github-import button {
+  white-space: nowrap;
+}
+
+.github-import [role="alert"] {
+  color: #b42318;
+}
+
+@media (max-width: 800px) {
+  .github-import form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .github-import .github-import-field {
+    width: 100%;
+  }
+}

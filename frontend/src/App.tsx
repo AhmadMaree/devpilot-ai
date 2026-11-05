@@ -8,6 +8,7 @@ import { PatchReview } from "./components/PatchReview"
 import { PatchGenerator } from "./components/PatchGenerator";
 import { LLMModelSelector } from "./components/LLMModelSelector";
 import { RepositoryIndexing } from "./components/RepositoryIndexing";
+import { GitHubRepositoryImport } from "./components/GitHubRepositoryImport";
 
 import "./App.css";
 
@@ -28,6 +29,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [proposalId, setProposalId] = useState("");
+  const [repositoryRefreshKey, setRepositoryRefreshKey] = useState(0);
 
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -220,7 +222,15 @@ function App() {
           <span className="model-badge">Qwen3:4b · Ollama</span>
         </header>
 
+       <GitHubRepositoryImport
+          onImported={(repository) => {
+            setRepositoryId(repository.id);
+            setRepositoryRefreshKey((current) => current + 1);
+          }}
+        />
+
         <RepositoryIndexing
+          key={repositoryRefreshKey}
           selectedRepositoryId={repositoryId}
           onRepositoryChange={setRepositoryId}
         />

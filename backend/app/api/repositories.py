@@ -17,11 +17,16 @@ from app.repositories.index_store import (
 from app.repositories.models import (
     RegisterRepositoryRequest,
     Repository,
+    ImportGitHubRepositoryRequest
 )
 from app.repositories.store import RepositoryStore
 from app.repositories.validation import (
     InvalidRepositoryError,
     validate_repository_path,
+)
+from app.repositories.github_import import (
+    GitHubImportError,
+    import_public_github_repository
 )
 
 router = APIRouter(
@@ -201,3 +206,30 @@ def get_repository_index_metadata(
             detail="Repository has not been indexed",
         )
     return metadata
+
+@router.post(
+    "/import/github",
+    response_model=Repository,
+    status_code= status.HTTP_201_CREATED,
+    dependencies=[Depends(require_local_environment)]
+)
+def import_github_repository(
+    request: ImportGitHubRepositoryRequest,
+    store: RepositoryStore = Depends(get_repository_store)
+) -> Repository:
+    try:
+        return import_public_github_repository(
+            url=request.url,
+            store=store
+        )
+    except GitHubImportError as exc:
+        raise HTTPException(
+            status_code=422,
+            detail= str(exc)
+        ) from exc
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail="Repository is already registered",
+        ) from None
+    

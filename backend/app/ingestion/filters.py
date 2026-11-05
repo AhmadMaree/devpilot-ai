@@ -46,6 +46,9 @@ MAX_FILE_SIZE = 256 * 1024  ## 256 kb
 
 
 def get_language(path: Path) -> str | None:
+    if path.name.lower() == "readme":
+        return "markdown"
+
     return SUPPORTED_EXTENSIONS.get(path.suffix.lower())
 
 

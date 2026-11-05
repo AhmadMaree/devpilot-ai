@@ -22,6 +22,10 @@ class RepositoryNotFoundError(ValueError):
     pass
 
 
+class NoIndexableFilesError(ValueError):
+    pass
+
+
 def index_repository(
     repository_id: UUID,
     repository_store: RepositoryStore,
@@ -61,9 +65,7 @@ def index_repository(
     check_cancelled()
 
     if not chunks:
-        raise ValueError(
-            "No supported source code chunks were found"
-        )
+        raise NoIndexableFilesError("No supported source files were found")
 
     index = LocalVectorIndex()
 

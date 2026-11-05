@@ -14,3 +14,7 @@ class Repository(BaseModel):
     name: str
     path: str
     created_at: datetime
+
+
+class ImportGitHubRepositoryRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=300)

@@ -16,7 +16,11 @@ from app.repositories.index_jobs import (
     IndexJobStore,
 )
 from app.repositories.index_store import RepositoryIndexStore
-from app.repositories.indexer import RepositoryNotFoundError, index_repository
+from app.repositories.indexer import (
+    NoIndexableFilesError,
+    RepositoryNotFoundError,
+    index_repository,
+)
 from app.repositories.store import DEFAULT_DB_PATH, RepositoryStore
 from app.utils.helper import RepositoryHasUncommittedChangesError
 
@@ -130,13 +134,23 @@ class RepositoryIndexJobManager:
             )
         except RepositoryNotFoundError:
             self._fail(job.job_id, "Repository not found.")
+        except NoIndexableFilesError:
+            self._fail(
+                job.job_id,
+                "No supported source files were found. Add source files or a README.md and retry.",
+            )
         except (httpx.TimeoutException, TimeoutError):
             self._fail(job.job_id, "Embedding service timed out.")
         except httpx.HTTPError:
             self._fail(job.job_id, "Embedding service is unavailable.")
         except RepositoryHasUncommittedChangesError as exc:
             self._fail(job.job_id, str(exc))
-        except (ValueError, OSError):
+        except (ValueError, OSError) as exc:
+            logger.error(
+                "Repository indexing job %s failed with %s",
+                job.job_id,
+                type(exc).__name__,
+            )
             self._fail(
                 job.job_id,
                 "Repository indexing could not be completed.",
