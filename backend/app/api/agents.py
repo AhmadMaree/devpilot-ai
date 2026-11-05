@@ -26,10 +26,10 @@ from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
     load_repository_index,
 )
+from app.repositories.index_store import RepositoryIndexStore
 from app.repositories.resolver import resolve_registered_repository
 from app.repositories.store import RepositoryStore
 from app.storage.investigations import InvestigationStore
-
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
 logger = logging.getLogger(__name__)
@@ -92,7 +92,11 @@ def investigate(
         fallback=settings.llm_selection
     )
 
-    index_path = get_repository_index_path(repository.id)
+    index_metadata = RepositoryIndexStore().get(repository.id)
+    index_path = get_repository_index_path(
+        repository.id,
+        index_metadata.index_version if index_metadata is not None else None,
+    )
 
     if not index_path.is_file():
         raise HTTPException(

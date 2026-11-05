@@ -12,13 +12,14 @@ from app.llm.models import LLMSelection
 from app.llm.store import LLMSelectionStore
 from app.rag.models import QuestionRequest, QuestionsAnswer
 from app.rag.service import RAGServices
+from app.repositories.index_paths import get_repository_index_path
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
     load_repository_index,
 )
+from app.repositories.index_store import RepositoryIndexStore
 from app.repositories.resolver import resolve_registered_repository
 from app.repositories.store import RepositoryStore
-
 
 router = APIRouter(prefix="/api/v1", tags=["Questions"])
 
@@ -71,11 +72,13 @@ def ask_question(
     try:
         # File modification time invalidates the cached
         # service after a successful atomic index replacement.
-        from app.repositories.index_paths import (
-            get_repository_index_path,
+        index_metadata = RepositoryIndexStore().get(repository.id)
+        index_path = get_repository_index_path(
+            repository.id,
+            index_metadata.index_version
+            if index_metadata is not None
+            else None,
         )
-
-        index_path = get_repository_index_path(repository.id)
 
         if not index_path.is_file():
             raise RepositoryIndexNotFoundError()

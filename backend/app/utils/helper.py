@@ -1,8 +1,11 @@
+import math
+import re
 import subprocess
 from pathlib import Path
 
-import math
-import re
+
+class RepositoryHasUncommittedChangesError(ValueError):
+    pass
 
 
 def ensure_clean_repositery(root: Path) -> None:
@@ -16,7 +19,7 @@ def ensure_clean_repositery(root: Path) -> None:
 
     # Check uncommit chnages in repository.
     if results.stdout.strip():
-        raise ValueError(
+        raise RepositoryHasUncommittedChangesError(
             "Repository contains uncommitted changes. "
             "Commit or clean the repository before ingestion."
         )

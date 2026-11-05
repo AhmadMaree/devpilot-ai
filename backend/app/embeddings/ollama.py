@@ -16,7 +16,12 @@ class OllamaEmbeddingProvider:
         response = httpx.post(
             f"{self.base_url}/api/embed",
             json={"model": self.model, "input": texts},
-            timeout=120.0,
+            timeout=httpx.Timeout(
+                connect=5.0,
+                read=30.0,
+                write=10.0,
+                pool=5.0,
+            ),
         )
 
         response.raise_for_status()

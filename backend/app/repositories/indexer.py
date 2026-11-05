@@ -1,16 +1,21 @@
 
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
-from uuid import UUID
+from threading import Event
+from uuid import UUID, uuid4
 
 from app.chunking.services import chunk_documents
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.ingestion.service import ingest_repository
+from app.repositories.index_jobs import IndexingCancelledError
 from app.repositories.index_paths import get_repository_index_path
 from app.repositories.index_store import RepositoryIndexStore
 from app.repositories.store import RepositoryStore
 from app.retrieval.local_index import LocalVectorIndex
+
+IndexProgress = Callable[[str, int, int], None]
 
 
 class RepositoryNotFoundError(ValueError):
@@ -22,7 +27,15 @@ def index_repository(
     repository_store: RepositoryStore,
     index_store: RepositoryIndexStore,
     embeddings: OllamaEmbeddingProvider,
+    progress: IndexProgress | None = None,
+    job_id: UUID | None = None,
+    cancel_event: Event | None = None,
 ) -> dict:
+    def check_cancelled() -> None:
+        if cancel_event is not None and cancel_event.is_set():
+            raise IndexingCancelledError("Repository indexing was cancelled")
+
+    check_cancelled()
     repository = repository_store.get(repository_id)
 
     if repository is None:
@@ -32,12 +45,20 @@ def index_repository(
 
     # Existing ingestion validates the repository and
     # rejects uncommitted changes.
+    if progress is not None:
+        progress("ingestion", 0, 0)
+
     ingestion = ingest_repository(
         repo_id=str(repository_id),
         repo_path=Path(repository.path),
     )
+    check_cancelled()
+
+    if progress is not None:
+        progress("chunking", 0, 0)
 
     chunks = chunk_documents(ingestion.documents)
+    check_cancelled()
 
     if not chunks:
         raise ValueError(
@@ -49,8 +70,11 @@ def index_repository(
     # Batch embeddings to avoid sending a large repository
     # to Ollama in a single HTTP request.
     batch_size = 16
+    if progress is not None:
+        progress("embedding", 0, len(chunks))
 
     for start in range(0, len(chunks), batch_size):
+        check_cancelled()
         batch = chunks[start:start + batch_size]
 
         vectors = embeddings.embed_texts(
@@ -59,14 +83,23 @@ def index_repository(
 
         index.add(batch, vectors)
 
-    index_path = get_repository_index_path(repository_id)
+        if progress is not None:
+            progress("embedding", start + len(batch), len(chunks))
+
+    check_cancelled()
+    index_version = str(job_id or uuid4())
+    index_path = get_repository_index_path(repository_id, index_version)
     index_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if progress is not None:
+        progress("saving", len(chunks), len(chunks))
 
     # Write the complete index to a temporary file first.
     # Do not overwrite the previous index on embedding failure.
     temp_path = None
 
     try:
+        check_cancelled()
         with tempfile.NamedTemporaryFile(
             mode="w",
             suffix=".json",
@@ -77,15 +110,26 @@ def index_repository(
             temp_path = Path(temp_file.name)
 
         index.save(temp_path)
+        check_cancelled()
 
-        # Replace only after serialization succeeds.
         os.replace(temp_path, index_path)
         temp_path = None
 
-        index_store.save(
-            repository_id=repository_id,
-            commit_sha=ingestion.commit_sha,
-        )
+        check_cancelled()
+        if job_id is None:
+            index_store.save(
+                repository_id=repository_id,
+                commit_sha=ingestion.commit_sha,
+                index_version=index_version,
+            )
+        else:
+            index_store.activate_for_job(
+                repository_id=repository_id,
+                commit_sha=ingestion.commit_sha,
+                index_version=index_version,
+                job_id=job_id,
+                total_chunks=len(chunks),
+            )
     finally:
         if temp_path is not None:
             temp_path.unlink(missing_ok=True)

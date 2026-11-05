@@ -69,6 +69,43 @@
   font-size: 13px;
 }
 
+.repository-index-panel .result-header {
+  margin-bottom: 20px;
+}
+
+.repository-index-panel .result-header h2 {
+  margin-bottom: 6px;
+}
+
+.repository-index-panel .result-header p {
+  margin: 0;
+}
+
+.repository-index-panel select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #d7deea;
+  border-radius: 10px;
+  background: #fff;
+  color: #172033;
+  font: inherit;
+}
+
+.indexing-status {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 10px;
+  background: #f7f8fc;
+}
+
+.indexing-status p {
+  margin-bottom: 0;
+}
+
+.indexing-error {
+  color: #b42318;
+}
+
 .sidebar-footer {
   margin-top: auto;
   display: flex;
@@ -456,4 +493,3 @@ button:disabled {
     overflow-y: auto;
   }
 }
-

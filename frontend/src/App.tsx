@@ -7,12 +7,12 @@ import type { InvestigationResponse, InvestigationSummary, SavedInvestigation } 
 import { PatchReview } from "./components/PatchReview"
 import { PatchGenerator } from "./components/PatchGenerator";
 import { LLMModelSelector } from "./components/LLMModelSelector";
+import { RepositoryIndexing } from "./components/RepositoryIndexing";
 
 import "./App.css";
 
-const REPOSITORY_ID = "demo-repository";
-
 function App() {
+  const [repositoryId, setRepositoryId] = useState("");
   const [question, setQuestion] = useState(
     "Where is repository ingestion implemented?",
   );
@@ -60,7 +60,7 @@ function App() {
     try {
       const response: SavedInvestigation = await get_investigation(
         {
-          repository_id: REPOSITORY_ID,
+          repository_id: repositoryId,
           question: trimmedQuestion,
         },
         controller.signal,
@@ -145,7 +145,7 @@ function App() {
           <span className="sidebar-label">WORKSPACE</span>
           <div className="repository-item">
             <span aria-hidden="true">▣</span>
-            <span>{REPOSITORY_ID}</span>
+            <span>{repositoryId || "No repository selected"}</span>
           </div>
         </div>
 
@@ -220,6 +220,11 @@ function App() {
           <span className="model-badge">Qwen3:4b · Ollama</span>
         </header>
 
+        <RepositoryIndexing
+          selectedRepositoryId={repositoryId}
+          onRepositoryChange={setRepositoryId}
+        />
+
         <section className="panel">
           <h2>Ask DevPilot</h2>
 
@@ -240,7 +245,9 @@ function App() {
 
             <div className="form-actions">
               <span className="helper-text">
-                Evidence comes from your indexed repository.
+                {repositoryId
+                  ? "Evidence comes from your indexed repository."
+                  : "Register and select a repository before investigating."}
               </span>
 
               <div className="action-buttons">
@@ -256,7 +263,11 @@ function App() {
 
                 <button
                   type="submit"
-                  disabled={loading || question.trim().length < 3}
+                  disabled={
+                    loading ||
+                    !repositoryId ||
+                    question.trim().length < 3
+                  }
                 >
                   {loading ? "Investigating..." : "Investigate"}
                 </button>
