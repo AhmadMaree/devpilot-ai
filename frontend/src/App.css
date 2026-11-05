@@ -559,3 +559,79 @@ button:disabled {
     width: 100%;
   }
 }
+
+
+
+.development-workflow {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.development-workflow form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.development-workflow input,
+.development-workflow textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px;
+  border: 1px solid #94a3b8;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.development-workflow button {
+  align-self: flex-start;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.development-workflow button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.development-results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.development-stage {
+  padding: 16px;
+  border: 1px solid #64748b;
+  border-radius: 10px;
+}
+
+.development-stage h4 {
+  margin-top: 0;
+}
+
+.development-error {
+  color: #dc2626;
+  overflow-wrap: anywhere;
+}
+
+.development-diff pre {
+  overflow-x: auto;
+  max-height: 420px;
+  padding: 16px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.development-approval {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

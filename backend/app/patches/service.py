@@ -50,9 +50,6 @@ def apply_approved_patch(
             message="Human approval is required.",
         )
 
-    if proposal.repository_id != "demo-repository":
-        raise ValueError("Repository is not authorized")
-
     target = resolve_target(repository_root, proposal.file_path)
 
     if target.suffix not in {

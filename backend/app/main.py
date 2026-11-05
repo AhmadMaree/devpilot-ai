@@ -11,6 +11,7 @@ from .api.ingestion import router as ingestion_router
 from .api.llm import router as llm_router
 from .api.patches import router as patches_router
 from .api.questions import router as questions_router
+from app.api.development import router as development_router
 from .api.routes import router
 from .core import get_settings
 
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(patches_router)
     app.include_router(llm_router)
     app.include_router(repositories_router)
+    app.include_router(development_router)
 
     return app
 

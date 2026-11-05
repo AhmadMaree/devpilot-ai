@@ -9,7 +9,7 @@ import { PatchGenerator } from "./components/PatchGenerator";
 import { LLMModelSelector } from "./components/LLMModelSelector";
 import { RepositoryIndexing } from "./components/RepositoryIndexing";
 import { GitHubRepositoryImport } from "./components/GitHubRepositoryImport";
-
+import { DevelopmentWorkflow } from "./components/DevelopmentWorkflow";
 import "./App.css";
 
 function App() {
@@ -234,6 +234,8 @@ function App() {
           selectedRepositoryId={repositoryId}
           onRepositoryChange={setRepositoryId}
         />
+
+        <DevelopmentWorkflow repositoryId={repositoryId} />
 
         <section className="panel">
           <h2>Ask DevPilot</h2>

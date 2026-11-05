@@ -155,6 +155,10 @@ def approve_proposal(
     if not propsal:
         raise HTTPException(404, "proposal_id not found")
 
+    root = get_repository_root(
+        propsal["repository_id"]
+    )
+
     if not store.claim_for_apply(str(proposal_id)):
         raise HTTPException(
             status_code=409,
@@ -169,9 +173,7 @@ def approve_proposal(
                 replacement_content=propsal["replacement_content"],
                 explanation=propsal["explanation"],
             )
-        
-        root = get_repository_root(propsal["repository_id"])
-        
+                
         res = apply_approved_patch(
             repository_root=root,
             proposal=updatePoposal,

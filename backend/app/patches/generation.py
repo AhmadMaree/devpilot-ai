@@ -15,7 +15,7 @@ MAX_REPLACEMENT_BYTES = 16_000
 
 
 class GeneratePatchRequest(BaseModel):
-    repository_id: str = "demo-repository"
+    repository_id: str = Field(min_length=1)
     file_path: str
     instruction: str = Field(min_length=10, max_length=1000)
 
