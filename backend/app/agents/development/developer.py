@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from app.patches.generation import (
     GeneratePatchRequest,
@@ -43,3 +43,5 @@ def build_developer_node(
                 "error": str(exc),
 
             }
+
+    return developer
