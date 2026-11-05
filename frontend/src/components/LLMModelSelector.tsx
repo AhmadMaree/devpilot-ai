@@ -15,7 +15,13 @@ import type {
     LLMProviderInfo
 } from "../api/llm/types"
 
-export function LLMModelSelector() {
+interface LLMModelSelectorProps {
+  onSelectionChange?: (selection: LLMSelection) => void;
+}
+
+export function LLMModelSelector({
+  onSelectionChange,
+}: LLMModelSelectorProps) {
   const [providers, setProviders] = useState<LLMProviderInfo[]>([]);
   const [models, setModels] = useState<LLMModelInfo[]>([]);
   const [saved, setSaved] = useState<LLMSelection | null>(null);
@@ -46,6 +52,7 @@ export function LLMModelSelector() {
         setSaved(current);
         setProvider(current.provider);
         setModel(current.model);
+        onSelectionChange?.(current);
       } catch (err) {
         if (active) {
           setError(
@@ -64,7 +71,7 @@ export function LLMModelSelector() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [onSelectionChange]);
 
   useEffect(() => {
     if (loading) return;
@@ -122,6 +129,7 @@ export function LLMModelSelector() {
       });
 
       setSaved(result);
+      onSelectionChange?.(result);
       setMessage(`Saved ${result.provider} / ${result.model}`);
     } catch (err) {
       setError(

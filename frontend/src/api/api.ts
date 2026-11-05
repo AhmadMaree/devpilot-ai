@@ -62,9 +62,12 @@ export const get_investigation = async(
 }
 
 
-export const getInvestigationHistory= async():  Promise<InvestigationSummary[]> => {
+export const getInvestigationHistory = async(
+  signal?: AbortSignal,
+): Promise<InvestigationSummary[]> => {
     const response = await fetch(
         `${API_BASE_URL}/api/v1/agents/investigations`,
+        { signal },
     );
 
     if (!response.ok) {

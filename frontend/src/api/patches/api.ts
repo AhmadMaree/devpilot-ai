@@ -1,5 +1,6 @@
 
 import type {
+    PatchProposalDetails,
     PatchPreview,
     PatchActionResponse,
     GeneratePatchRequest,
@@ -10,6 +11,15 @@ const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ??
   "http://127.0.0.1:8000";
 
+export class PatchApiError extends Error {
+    readonly status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = "PatchApiError";
+        this.status = status;
+    }
+}
 
 const request = async <T>(
     path: string,
@@ -32,7 +42,7 @@ const request = async <T>(
         // Keep the HTTP status as the fallback.
         }
 
-        throw new Error(detail);
+        throw new PatchApiError(detail, response.status);
     }
 
     return response.json() as Promise<T>;
@@ -42,6 +52,14 @@ const request = async <T>(
 export const getPatchPreview = (proposalId: string,): Promise<PatchPreview> => {
     return request<PatchPreview>(
         `/api/v1/patches/proposals/${encodeURIComponent(proposalId)}/preview`,
+    );
+}
+
+export const getPatchProposalDetails = (
+    proposalId: string,
+): Promise<PatchProposalDetails> => {
+    return request<PatchProposalDetails>(
+        `/api/v1/patches/proposals/${encodeURIComponent(proposalId)}`,
     );
 }
 

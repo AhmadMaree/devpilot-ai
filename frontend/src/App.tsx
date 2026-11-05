@@ -1,109 +1,99 @@
 
-import { useEffect, useRef, useState } from "react";
-import type { FormEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
-import { get_investigation , getInvestigationHistory, getSavedInvestigation } from "./api/api";
-import type { InvestigationResponse, InvestigationSummary, SavedInvestigation } from "./api/types";
-import { PatchReview } from "./components/PatchReview"
-import { PatchGenerator } from "./components/PatchGenerator";
+import { getSavedInvestigation } from "./api/api";
+import { getLLMSelection } from "./api/llm/api";
+import { getRepositories } from "./api/repositories";
+import type { SavedInvestigation } from "./api/types";
+import type { LLMSelection } from "./api/llm/types";
+import type { KnownPatchProposal, PatchStatus } from "./api/patches/types";
 import { LLMModelSelector } from "./components/LLMModelSelector";
+import { AppShell } from "./components/AppShell";
 import { RepositoryIndexing } from "./components/RepositoryIndexing";
-import { GitHubRepositoryImport } from "./components/GitHubRepositoryImport";
-import { DevelopmentWorkflow } from "./components/DevelopmentWorkflow";
+import { AIWorkspace } from "./components/AIWorkspace";
+import { ReviewCenter } from "./components/ReviewCenter";
+import { Dashboard } from "./components/Dashboard";
+import { Activity } from "./components/Activity";
+import { useHashNavigation } from "./hooks/useHashNavigation";
 import "./App.css";
 
 function App() {
+  const queryClient = useQueryClient();
+  const destination = useHashNavigation();
   const [repositoryId, setRepositoryId] = useState("");
-  const [question, setQuestion] = useState(
-    "Where is repository ingestion implemented?",
-  );
+  const [repositoryName, setRepositoryName] = useState<string | null>(null);
+  const [repositoryLoading, setRepositoryLoading] = useState(true);
+  const [modelSelection, setModelSelection] = useState<LLMSelection | null>(null);
+  const [activeInvestigation, setActiveInvestigation] =
+    useState<SavedInvestigation | null>(null);
 
-  const [result, setResult] =
-    useState<InvestigationResponse | null>(null);
-
-  const [history, setHistory] = useState<InvestigationSummary[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [repositoryLoadError, setRepositoryLoadError] = useState<string | null>(null);
+  const [activityError, setActivityError] = useState<string | null>(null);
 
   const [proposalId, setProposalId] = useState("");
-  const [repositoryRefreshKey, setRepositoryRefreshKey] = useState(0);
-
-  const controllerRef = useRef<AbortController | null>(null);
+  const [knownProposals, setKnownProposals] = useState<KnownPatchProposal[]>([]);
 
   useEffect(() => {
-    void loadHistory();
+    let active = true;
+    void getRepositories()
+      .then((repositories) => {
+        if (!active) return;
+        const savedId = window.localStorage.getItem("devpilot.activeRepositoryId");
+        const selected = repositories.find((repository) => repository.id === savedId)
+          ?? repositories[0];
+        setRepositoryId(selected?.id ?? "");
+        setRepositoryName(selected?.name ?? null);
+        if (selected) {
+          window.localStorage.setItem("devpilot.activeRepositoryId", selected.id);
+        } else {
+          window.localStorage.removeItem("devpilot.activeRepositoryId");
+        }
+        setRepositoryLoading(false);
+      })
+      .catch((caughtError: unknown) => {
+        if (active) {
+          setRepositoryLoadError(
+            caughtError instanceof Error
+              ? caughtError.message
+              : "Could not load repositories.",
+          );
+          setRepositoryLoading(false);
+        }
+      });
+
     return () => {
-      controllerRef.current?.abort();
+      active = false;
     };
   }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  useEffect(() => {
+    let active = true;
+    void getLLMSelection()
+      .then((selection) => {
+        if (active) setModelSelection(selection);
+      })
+      .catch(() => {
+        if (active) setModelSelection(null);
+      });
 
-    const trimmedQuestion = question.trim();
-
-    if (trimmedQuestion.length < 3) {
-      setError("Enter a question with at least 3 characters.");
-      return;
-    }
-
-    controllerRef.current?.abort();
-
-    const controller = new AbortController();
-    controllerRef.current = controller;
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const response: SavedInvestigation = await get_investigation(
-        {
-          repository_id: repositoryId,
-          question: trimmedQuestion,
-        },
-        controller.signal,
-      );
-
-      if (!controller.signal.aborted) {
-        setResult(response.result);
-        setSelectedId(response.id);
-        void loadHistory()
-      }
-    } catch (caughtError) {
-      if (!controller.signal.aborted) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "An unexpected error occurred.",
-        );
-      }
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-        setLoading(false);
-      }
-    }
-  }
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function openInvestigation(id: string) {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setLoading(false);
-
-    setError(null);
+    setActivityError(null);
 
     try {
       const saved = await getSavedInvestigation(id);
 
       setSelectedId(saved.id);
-      setResult(saved.result);
-      setQuestion(saved.result.question);
+      setActiveInvestigation(saved);
+      window.location.hash = "ai-workspace";
     } catch (error) {
-      setError(
+      setActivityError(
         error instanceof Error
           ? error.message
           : "Could not load investigation",
@@ -111,311 +101,118 @@ function App() {
     }
   }
 
-  function handleCancel() {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setLoading(false);
-  }
-
-
-  async function loadHistory() {
-    setHistoryLoading(true);
-
-    try {
-      const items = await getInvestigationHistory();
-      setHistory(items);
-    } catch (error) {
-      console.error("Could not load investigation history", error);
-    } finally {
-      setHistoryLoading(false);
+  const handleRepositoryChange = useCallback((
+    id: string,
+    name: string | null = null,
+  ) => {
+    setRepositoryId(id);
+    setRepositoryName(name);
+    if (id) {
+      window.localStorage.setItem("devpilot.activeRepositoryId", id);
+    } else {
+      window.localStorage.removeItem("devpilot.activeRepositoryId");
     }
-  }
+  }, []);
+
+  const handleProposalCreated = useCallback((proposal: KnownPatchProposal) => {
+    setKnownProposals((current) => [
+      ...current.filter((item) => item.id !== proposal.id),
+      proposal,
+    ]);
+    setProposalId(proposal.id);
+  }, []);
+
+  const handleOpenProposal = useCallback((id: string) => {
+    setProposalId(id);
+    window.location.hash = "#review-center";
+  }, []);
+
+  const handleProposalStatusChange = useCallback((
+    id: string,
+    status: PatchStatus,
+  ) => {
+    setKnownProposals((current) => current.map((proposal) => (
+      proposal.id === id ? { ...proposal, status } : proposal
+    )));
+  }, []);
 
 
   return (
-    <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-icon">D</div>
-          <div>
-            <strong>DevPilot AI</strong>
-            <small>Engineering Assistant</small>
-          </div>
-        </div>
-
-        <div className="sidebar-section">
-          <span className="sidebar-label">WORKSPACE</span>
-          <div className="repository-item">
-            <span aria-hidden="true">▣</span>
-            <span>{repositoryId || "No repository selected"}</span>
-          </div>
-        </div>
-
-        <div className="sidebar-footer">
-          <span className="status-dot" />
-          Local development
-        </div>
-
-        <div className="sidebar-section">
-        <div className="history-heading">
-          <span className="sidebar-label">
-            RECENT INVESTIGATIONS
-          </span>
-
-          <button
-            type="button"
-            className="history-refresh"
-            onClick={() => void loadHistory()}
-            disabled={historyLoading}
-            aria-label="Refresh investigation history"
-          >
-            ↻
-          </button>
-        </div>
-
-        {history.length === 0 ? (
-          <p className="history-empty">
-            {historyLoading
-              ? "Loading history..."
-              : "No investigations saved yet."}
-          </p>
-        ) : (
-          <div className="history-list">
-            {history.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={
-                  selectedId === item.id
-                    ? "history-item selected"
-                    : "history-item"
-                }
-                onClick={() => void openInvestigation(item.id)}
-                disabled={loading}
-                title={item.question}
-              >
-                <span className="history-question">
-                  {item.question}
-                </span>
-
-                <small>
-                  {new Date(item.created_at).toLocaleString()}
-                </small>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-      </aside>
-
-      <main className="main-content">
-        <header className="page-header">
-          <div>
-            <p className="eyebrow">CODE INTELLIGENCE</p>
-            <h1>Repository Investigation</h1>
-            <p className="page-description">
-              Ask questions about your codebase using local RAG
-              and LangGraph agents.
+    <AppShell
+      destination={destination}
+      repositoryName={repositoryName}
+      modelLabel={
+        modelSelection
+          ? `${modelSelection.provider} · ${modelSelection.model}`
+          : null
+      }
+    >
+      {destination === "dashboard" && (
+        <>
+          {repositoryLoadError && (
+            <p className="indexing-error" role="alert">
+              Could not load the active repository: {repositoryLoadError}
             </p>
-          </div>
-
-          <span className="model-badge">Qwen3:4b · Ollama</span>
-        </header>
-
-       <GitHubRepositoryImport
-          onImported={(repository) => {
-            setRepositoryId(repository.id);
-            setRepositoryRefreshKey((current) => current + 1);
-          }}
-        />
-
-        <RepositoryIndexing
-          key={repositoryRefreshKey}
-          selectedRepositoryId={repositoryId}
-          onRepositoryChange={setRepositoryId}
-        />
-
-        <DevelopmentWorkflow repositoryId={repositoryId} />
-
-        <section className="panel">
-          <h2>Ask DevPilot</h2>
-
-          <form onSubmit={handleSubmit}>
-            <label htmlFor="question" className="field-label">
-              Your question
-            </label>
-
-            <textarea
-              id="question"
-              value={question}
-              onChange={(event) => setQuestion(event.target.value)}
-              placeholder="Where is repository ingestion implemented?"
-              rows={4}
-              maxLength={2000}
-              disabled={loading}
-            />
-
-            <div className="form-actions">
-              <span className="helper-text">
-                {repositoryId
-                  ? "Evidence comes from your indexed repository."
-                  : "Register and select a repository before investigating."}
-              </span>
-
-              <div className="action-buttons">
-                {loading && (
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={handleCancel}
-                  >
-                    Cancel
-                  </button>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={
-                    loading ||
-                    !repositoryId ||
-                    question.trim().length < 3
-                  }
-                >
-                  {loading ? "Investigating..." : "Investigate"}
-                </button>
-              </div>
-            </div>
-          </form>
-        </section>
-
-        {loading && (
-          <section className="panel" role="status">
-            <div className="loading-row">
-              <span className="spinner" />
-              <div>
-                <strong>Agents are investigating...</strong>
-                <p className="muted">
-                  Retrieving code, generating an answer and
-                  reviewing citations.
-                </p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {error && (
-          <section className="error-panel" role="alert">
-            <strong>Investigation failed</strong>
-            <p>{error}</p>
-          </section>
-        )}
-
-        {result && (
-          <>
-            <section className="panel">
-              <div className="result-header">
-                <h2>Investigation Result</h2>
-
-                <span
-                  className={
-                    result.review_passed
-                      ? "review-badge passed"
-                      : "review-badge failed"
-                  }
-                >
-                  {result.review_passed
-                    ? "Review passed"
-                    : "Review failed"}
-                </span>
-              </div>
-
-              {!result.review_passed && (
-                <div className="review-warning" role="alert">
-                  This answer did not pass review. Do not treat
-                  it as verified.
-                </div>
-              )}
-
-              <div className="answer-text">{result.answer}</div>
-
-              <div className="result-meta">
-                <span>Attempts: {result.attempts}</span>
-                <span>Sources: {result.sources.length}</span>
-              </div>
-            </section>
-
-            <section className="panel">
-              <h2>Source Evidence</h2>
-
-              {result.sources.length === 0 ? (
-                <p className="muted">
-                  No supporting source evidence was retrieved.
-                </p>
-              ) : (
-                <div className="sources-list">
-                  {result.sources.map((source) => (
-                    <div
-                      className="source-card"
-                      key={source.chunk_id}
-                    >
-                      <span className="source-label">
-                        [{source.source_id}]
-                      </span>
-
-                      <div className="source-details">
-                        <strong>{source.file_path}</strong>
-                        <small>
-                          Lines {source.start_line}–
-                          {source.end_line}
-                        </small>
-                        <small>
-                          Commit {source.commit_sha.slice(0, 8)}
-                        </small>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="panel">
-              <h2>Agent Execution</h2>
-
-              <div className="execution-steps">
-                <span>Planner</span>
-                <span>→</span>
-                <span>Retriever</span>
-                <span>→</span>
-                <span>Analyst</span>
-                <span>→</span>
-                <span>Reviewer</span>
-              </div>
-
-              <div className="execution-details">
-                <p>
-                  <strong>Plan:</strong> {result.plan}
-                </p>
-                <p>
-                  <strong>Review:</strong> {result.review_feedback}
-                </p>
-              </div>
-            </section>
-          </>
-        )}
-
-        <section>
-          <PatchGenerator onGenerated={setProposalId} />
-
-          {proposalId.trim() && (
-            <PatchReview key={proposalId} proposalId={proposalId.trim()} />
           )}
-        </section>
+          <Dashboard
+            repositoryId={repositoryId}
+            repositoryLoading={repositoryLoading}
+            proposals={knownProposals}
+            onOpenInvestigation={(id) => void openInvestigation(id)}
+            onOpenProposal={handleOpenProposal}
+          />
+        </>
+      )}
 
-        <section>
-          <LLMModelSelector />
+      {destination === "repositories" && (
+        <RepositoryIndexing
+          selectedRepositoryId={repositoryId}
+          onRepositoryChange={handleRepositoryChange}
+        />
+      )}
+
+      {destination === "ai-workspace" && (
+        <AIWorkspace
+          repositoryId={repositoryId}
+          repositoryName={repositoryName}
+          restoredInvestigation={activeInvestigation}
+          onInvestigationComplete={(saved) => {
+            setActiveInvestigation(saved);
+            setSelectedId(saved.id);
+            void queryClient.invalidateQueries({ queryKey: ["investigation-history"] });
+          }}
+          onOpenProposal={handleOpenProposal}
+          onProposalCreated={handleProposalCreated}
+        />
+      )}
+
+      {destination === "review-center" && (
+        <ReviewCenter
+          repositoryId={repositoryId}
+          proposals={knownProposals}
+          selectedProposalId={proposalId}
+          onSelectProposal={setProposalId}
+          onProposalCreated={handleProposalCreated}
+          onStatusChange={handleProposalStatusChange}
+        />
+      )}
+
+      {destination === "activity" && (
+        <Activity
+          proposals={knownProposals}
+          selectedInvestigationId={selectedId}
+          openError={activityError}
+          onOpenInvestigation={(id) => void openInvestigation(id)}
+          onOpenProposal={handleOpenProposal}
+        />
+      )}
+
+      {destination === "settings" && (
+        <section className="panel settings-panel">
+          <LLMModelSelector onSelectionChange={setModelSelection} />
         </section>
-      </main>
-    </div>
+      )}
+    </AppShell>
   );
 }
 

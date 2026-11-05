@@ -4,14 +4,18 @@ import type { FormEvent } from "react";
 
 import { runDevelopmentWorkflow } from "../api/workflow/api";
 import type { DevelopmentWorkflowResponse } from "../api/workflow/types";
-import { PatchReview } from "./PatchReview";
+import type { KnownPatchProposal } from "../api/patches/types";
 
 interface DevelopmentWorkflowProps {
   repositoryId: string;
+  onOpenProposal: (proposalId: string) => void;
+  onProposalCreated: (proposal: KnownPatchProposal) => void;
 }
 
 export function DevelopmentWorkflow({
   repositoryId,
+  onOpenProposal,
+  onProposalCreated,
 }: DevelopmentWorkflowProps) {
   const [filePath, setFilePath] = useState("");
   const [instruction, setInstruction] = useState("");
@@ -22,19 +26,10 @@ export function DevelopmentWorkflow({
 
   const controllerRef = useRef<AbortController | null>(null);
 
-  // Prevent an old result from appearing under a newly
-  // selected repository.
-  useEffect(() => {
-    controllerRef.current?.abort();
-    controllerRef.current = null;
-    setResult(null);
-    setError(null);
-    setLoading(false);
-  }, [repositoryId]);
-
   useEffect(() => {
     return () => {
       controllerRef.current?.abort();
+      controllerRef.current = null;
     };
   }, []);
 
@@ -66,6 +61,24 @@ export function DevelopmentWorkflow({
 
       if (!controller.signal.aborted) {
         setResult(response);
+        if (response.proposal_id) {
+          onProposalCreated({
+            id: response.proposal_id,
+            repository_id: repositoryId,
+            source: "workflow",
+            file_path: filePath.trim(),
+            request_context: instruction.trim(),
+            known_at: new Date().toISOString(),
+            workflow_feedback: {
+              developer: response.developer_feedback,
+              reviewer: response.review_feedback,
+              reviewer_passed: response.review_passed,
+              qa: response.qa_feedback,
+              qa_passed: response.qa_passed,
+            },
+            status: "pending",
+          });
+        }
       }
     } catch (err) {
       if (!controller.signal.aborted) {
@@ -85,16 +98,16 @@ export function DevelopmentWorkflow({
 
   return (
     <section className="panel development-workflow">
-      <h2>AI Development Workflow</h2>
+      <h2>Make a change</h2>
 
       <p>
-        Generate a patch, review its integrity, and perform
-        static QA before human approval.
+        Describe a repository-relative change. DevPilot prepares a proposal for
+        you to inspect in Review Center; it never applies changes automatically.
       </p>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(event) => void handleSubmit(event)}>
         <label htmlFor="development-file-path">
-          Target file
+          Target file (relative to the repository)
         </label>
 
         <input
@@ -134,7 +147,7 @@ export function DevelopmentWorkflow({
             instruction.trim().length < 10
           }
         >
-          {loading ? "Running workflow..." : "Run workflow"}
+          {loading ? "Preparing proposal…" : "Prepare change proposal"}
         </button>
       </form>
 
@@ -151,34 +164,43 @@ export function DevelopmentWorkflow({
       )}
 
       {result && (
-        <div className="development-results" aria-live="polite">
-          <h3>Workflow result: {result.workflow_status}</h3>
+        <div className="development-results" aria-live="polite" aria-label="Make Change results">
+          <h3>
+            {result.workflow_status === "ready_for_approval"
+              ? "Proposal ready for your review"
+              : "A proposal could not be prepared"}
+          </h3>
 
           <div className="development-stage">
-            <h4>1. Developer Agent</h4>
-            <p>Status: {result.developer_status}</p>
+            <h4>1. Developer</h4>
+            <p>
+              <strong>Status:</strong>{" "}
+              {result.workflow_status === "ready_for_approval"
+                ? "Draft prepared"
+                : result.developer_status === "completed"
+                  ? "Draft step completed"
+                  : "Could not complete"}
+            </p>
             <p>{result.developer_feedback}</p>
           </div>
 
           <div className="development-stage">
             <h4>2. Code Reviewer</h4>
-            <p>
-              {result.review_passed
-                ? "Static review passed"
-                : "Static review did not pass"}
-            </p>
+            <p><strong>Status:</strong> {stageStatus(result.review_passed, result.review_feedback)}</p>
             <p>{result.review_feedback}</p>
           </div>
 
           <div className="development-stage">
-            <h4>3. QA Agent</h4>
-            <p>
-              {result.qa_passed
-                ? "Static QA passed"
-                : "Static QA did not pass or was skipped"}
-            </p>
+            <h4>3. QA</h4>
+            <p><strong>Status:</strong> {stageStatus(result.qa_passed, result.qa_feedback)}</p>
             <p>{result.qa_feedback}</p>
           </div>
+
+          <p className="workflow-validation-note">
+            Code Reviewer checks proposal integrity deterministically. QA performs
+            static validation only; it does not run the project’s test suite. These
+            stages are not full AI code review or executed tests.
+          </p>
 
           {result.error && (
             <p role="alert" className="development-error">
@@ -195,23 +217,26 @@ export function DevelopmentWorkflow({
             </div>
           )}
 
-          {result.workflow_status === "ready_for_approval" &&
-            result.proposal_id && (
-              <div className="development-approval">
-                <h3>Human review required</h3>
-                <p>
-                  Static checks passed. Inspect the patch before
-                  approving or rejecting it.
-                </p>
-
-                <PatchReview
-                  key={result.proposal_id}
-                  proposalId={result.proposal_id}
-                />
-              </div>
-            )}
+          {result.proposal_id && (
+            <a
+              className="primary-link"
+              href="#review-center"
+              onClick={() => {
+                if (result.proposal_id) onOpenProposal(result.proposal_id);
+              }}
+            >
+              Open proposal in Review Center
+            </a>
+          )}
         </div>
       )}
     </section>
   );
+}
+
+function stageStatus(passed: boolean, feedback: string): string {
+  if (passed) return "Static validation passed";
+  return feedback.trim()
+    ? "Static validation needs attention"
+    : "Not reached";
 }

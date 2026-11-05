@@ -4,12 +4,18 @@ import { useState } from "react";
 import {
   generatePatchProposal,
 } from "../api/patches/api";
+import type { GeneratedPatchResponse } from "../api/patches/types";
 
 interface PatchGeneratorProps {
-  onGenerated: (proposalId: string) => void;
+  repositoryId: string;
+  onGenerated: (
+    proposal: GeneratedPatchResponse,
+    context: { filePath: string; instruction: string },
+  ) => void;
 }
 
 export function PatchGenerator({
+  repositoryId,
   onGenerated,
 }: PatchGeneratorProps) {
   const [filePath, setFilePath] = useState("");
@@ -29,12 +35,15 @@ export function PatchGenerator({
 
     try {
       const result = await generatePatchProposal({
-        repository_id: "demo-repository",
+        repository_id: repositoryId,
         file_path: filePath.trim(),
         instruction: instruction.trim(),
       });
 
-      onGenerated(result.id);
+      onGenerated(result, {
+        filePath: filePath.trim(),
+        instruction: instruction.trim(),
+      });
     } catch (err: unknown) {
       setError(
         err instanceof Error
@@ -85,7 +94,7 @@ export function PatchGenerator({
 
       {error && <p role="alert">{error}</p>}
 
-      <button type="submit" disabled={loading}>
+      <button type="submit" disabled={loading || !repositoryId}>
         {loading
           ? "Generating proposal..."
           : "Generate patch proposal"}

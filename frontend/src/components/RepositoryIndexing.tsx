@@ -1,347 +1,409 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getRepositories,
   getRepositoryIndexMetadata,
   getRepositoryIndexingStatus,
+  registerRepository,
   startRepositoryIndexing,
 } from "../api/repositories";
 import type {
   IndexingJob,
   Repository,
-  RepositoryIndexMetadata,
 } from "../api/types";
+import { importGitHubRepository } from "../api/github/github";
 
 interface RepositoryIndexingProps {
   selectedRepositoryId: string;
-  onRepositoryChange: (repositoryId: string) => void;
+  onRepositoryChange: (repositoryId: string, repositoryName: string | null) => void;
 }
 
-interface RepositoryIndexStatusProps {
-  repositoryId: string;
-  repositoryName: string;
-  loadingRepositories: boolean;
-}
-
-function isActive(job: IndexingJob | null): boolean {
+function isActive(job: IndexingJob | null | undefined): boolean {
   return job?.status === "queued" || job?.status === "running";
+}
+
+function indexingErrorMessage(message: string): string {
+  if (/uncommitted changes/i.test(message)) {
+    return `${message} DevPilot will not modify your Git working tree. Commit or safely save your changes yourself, then retry indexing.`;
+  }
+  return message;
 }
 
 export function RepositoryIndexing({
   selectedRepositoryId,
   onRepositoryChange,
 }: RepositoryIndexingProps) {
-  const [repositories, setRepositories] = useState<Repository[]>([]);
-  const [loadingRepositories, setLoadingRepositories] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const selectedRepositoryIdRef = useRef(selectedRepositoryId);
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [path, setPath] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
 
-  useEffect(() => {
-    selectedRepositoryIdRef.current = selectedRepositoryId;
-  }, [selectedRepositoryId]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void getRepositories(controller.signal)
-      .then((items) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-        setRepositories(items);
-        const selectedExists = items.some(
-          (item) => item.id === selectedRepositoryIdRef.current,
-        );
-        if (!selectedExists) {
-          onRepositoryChange(items[0]?.id ?? "");
-        }
-      })
-      .catch((caughtError: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not load repositories.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
-          setLoadingRepositories(false);
-        }
-      });
-
-    return () => controller.abort();
-  }, [onRepositoryChange]);
-
-  const selectedRepository = repositories.find(
-    (repository) => repository.id === selectedRepositoryId,
+  const repositoriesQuery = useQuery({
+    queryKey: ["repositories"],
+    queryFn: ({ signal }) => getRepositories(signal),
+  });
+  const repositories = useMemo(
+    () => repositoriesQuery.data ?? [],
+    [repositoriesQuery.data],
   );
 
+  useEffect(() => {
+    if (!repositoriesQuery.data) return;
+    const selected = repositories.find(
+      (repository) => repository.id === selectedRepositoryId,
+    ) ?? repositories[0] ?? null;
+
+    if (selected?.id !== selectedRepositoryId) {
+      onRepositoryChange(selected?.id ?? "", selected?.name ?? null);
+    } else if (selected) {
+      onRepositoryChange(selected.id, selected.name);
+    }
+  }, [onRepositoryChange, repositories, repositoriesQuery.data, selectedRepositoryId]);
+
+  const registerMutation = useMutation({
+    mutationFn: () => registerRepository(name.trim(), path.trim()),
+    onSuccess: async (repository) => {
+      await queryClient.invalidateQueries({ queryKey: ["repositories"] });
+      onRepositoryChange(repository.id, repository.name);
+      setName("");
+      setPath("");
+      setFormError(null);
+    },
+    onError: (error: Error) => setFormError(error.message),
+  });
+
+  function submitRegistration(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (registerMutation.isPending || !name.trim() || !path.trim()) return;
+    setFormError(null);
+    registerMutation.mutate();
+  }
+
+  async function handleImported(repository: Repository) {
+    queryClient.setQueryData<Repository[]>(["repositories"], (current = []) => [
+      ...current.filter((item) => item.id !== repository.id),
+      repository,
+    ]);
+    onRepositoryChange(repository.id, repository.name);
+    await queryClient.invalidateQueries({ queryKey: ["repositories"] });
+  }
+
   return (
-    <section className="panel repository-index-panel">
-      <div className="result-header">
-        <div>
-          <h2>Repository Index</h2>
-          <p className="muted">
-            Index a registered Git repository for investigation.
-          </p>
+    <div className="repository-onboarding">
+      <section className="panel repository-connect-panel" aria-labelledby="connect-title">
+        <div className="repository-section-heading">
+          <span className="step-number">1</span>
+          <div>
+            <h2 id="connect-title">Connect a repository</h2>
+            <p className="muted">
+              Register a local Git repository or import a public GitHub repository.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <label className="field-label" htmlFor="repository-select">
-        Registered repository
-      </label>
-      <select
-        id="repository-select"
-        value={selectedRepositoryId}
-        onChange={(event) => onRepositoryChange(event.target.value)}
-        disabled={loadingRepositories || repositories.length === 0}
-      >
-        {repositories.length === 0 ? (
-          <option value="">
-            {loadingRepositories
-              ? "Loading repositories..."
-              : "No repositories registered"}
-          </option>
+        <div className="repository-connect-grid">
+          <form className="repository-register-form" onSubmit={submitRegistration}>
+            <h3>Register local repository</h3>
+            <label htmlFor="repository-name">Display name</label>
+            <input
+              id="repository-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="My application"
+              maxLength={100}
+              required
+              disabled={registerMutation.isPending}
+            />
+            <label htmlFor="repository-path">Git repository root path</label>
+            <input
+              id="repository-path"
+              value={path}
+              onChange={(event) => setPath(event.target.value)}
+              placeholder="D:\Projects\my-app"
+              required
+              disabled={registerMutation.isPending}
+            />
+            <p className="form-hint">
+              Enter the root directory of an existing Git repository.
+            </p>
+            {formError && (
+              <p className="repository-error" role="alert">{formError}</p>
+            )}
+            <button type="submit" disabled={registerMutation.isPending}>
+              {registerMutation.isPending ? "Registering…" : "Register repository"}
+            </button>
+          </form>
+
+          <div className="repository-github-import">
+            <h3>Import public GitHub repository</h3>
+            <p className="muted">
+              DevPilot clones the public repository into its local workspace.
+            </p>
+            <GitHubImportForm onImported={(repository) => void handleImported(repository)} />
+          </div>
+        </div>
+      </section>
+
+      <section className="panel repository-list-panel" aria-labelledby="repositories-title">
+        <div className="repository-section-heading">
+          <span className="step-number">2</span>
+          <div>
+            <h2 id="repositories-title">Select and prepare</h2>
+            <p className="muted">
+              Choose the active repository, then create or refresh its searchable index.
+            </p>
+            <p className="muted">
+              Repository records include the local path; remote GitHub origin URLs are not
+              retained by the current API.
+            </p>
+          </div>
+        </div>
+
+        {repositoriesQuery.isPending ? (
+          <p role="status">Loading registered repositories…</p>
+        ) : repositoriesQuery.isError ? (
+          <div className="repository-error-state" role="alert">
+            <p>Could not load repositories: {repositoriesQuery.error.message}</p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void repositoriesQuery.refetch()}
+            >
+              Retry
+            </button>
+          </div>
+        ) : repositories.length === 0 ? (
+          <div className="repository-empty-state">
+            <strong>No repositories connected yet</strong>
+            <p className="muted">
+              Start with a local Git repository or import a public GitHub project above.
+            </p>
+          </div>
         ) : (
-          repositories.map((repository) => (
-            <option key={repository.id} value={repository.id}>
-              {repository.name} — {repository.path}
-            </option>
-          ))
+          <div className="repository-card-list">
+            {repositories.map((repository) => (
+              <RepositoryCard
+                key={repository.id}
+                repository={repository}
+                selected={repository.id === selectedRepositoryId}
+                onSelect={() => onRepositoryChange(repository.id, repository.name)}
+              />
+            ))}
+          </div>
         )}
-      </select>
-
-      {!loadingRepositories && repositories.length === 0 && (
-        <p className="muted">
-          Register a repository through the API before indexing it.
-        </p>
-      )}
-      {error && (
-        <p className="indexing-error" role="alert">
-          {error}
-        </p>
-      )}
-
-      {selectedRepository && (
-        <RepositoryIndexStatus
-          key={selectedRepository.id}
-          repositoryId={selectedRepository.id}
-          repositoryName={selectedRepository.name}
-          loadingRepositories={loadingRepositories}
-        />
-      )}
-    </section>
+      </section>
+    </div>
   );
 }
 
-function RepositoryIndexStatus({
-  repositoryId,
-  repositoryName,
-  loadingRepositories,
-}: RepositoryIndexStatusProps) {
-  const [job, setJob] = useState<IndexingJob | null>(null);
-  const [metadata, setMetadata] =
-    useState<RepositoryIndexMetadata | null>(null);
-  const [starting, setStarting] = useState(false);
+interface GitHubImportFormProps {
+  onImported: (repository: Repository) => void;
+}
+
+function GitHubImportForm({ onImported }: GitHubImportFormProps) {
+  const [url, setUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const startControllerRef = useRef<AbortController | null>(null);
-  const currentJobId = job?.job_id;
-  const currentStatus = job?.status;
-  const shouldPoll =
-    currentStatus === "queued" || currentStatus === "running";
+  const [pending, setPending] = useState(false);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-    void getRepositoryIndexingStatus(repositoryId, controller.signal)
-      .then((latestJob) => {
-        if (active) {
-          setJob(latestJob);
-        }
-      })
-      .catch((caughtError: unknown) => {
-        if (active && !controller.signal.aborted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not load indexing status.",
-          );
-        }
-      });
-    void getRepositoryIndexMetadata(repositoryId, controller.signal)
-      .then((latestMetadata) => {
-        if (active) {
-          setMetadata(latestMetadata);
-        }
-      })
-      .catch((caughtError: unknown) => {
-        if (active && !controller.signal.aborted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not load index metadata.",
-          );
-        }
-      });
-
-    return () => {
-      active = false;
-      controller.abort();
-      startControllerRef.current?.abort();
-    };
-  }, [repositoryId]);
-
-  useEffect(() => {
-    if (currentJobId === undefined || !shouldPoll) {
-      return;
-    }
-
-    let active = true;
-    let timeoutId: number | undefined;
-    let controller: AbortController | undefined;
-
-    const poll = async () => {
-      controller = new AbortController();
-      try {
-        const latest = await getRepositoryIndexingStatus(
-          repositoryId,
-          controller.signal,
-        );
-        if (active && latest) {
-          setJob(latest);
-        }
-      } catch (caughtError) {
-        if (active && !controller.signal.aborted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not refresh indexing status.",
-          );
-        }
-      } finally {
-        if (active) {
-          timeoutId = window.setTimeout(() => void poll(), 2000);
-        }
-      }
-    };
-
-    timeoutId = window.setTimeout(() => void poll(), 2000);
-
-    return () => {
-      active = false;
-      controller?.abort();
-      if (timeoutId !== undefined) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [currentJobId, shouldPoll, repositoryId]);
-
-  useEffect(() => {
-    if (currentJobId === undefined || currentStatus !== "completed") {
-      return;
-    }
-
-    const controller = new AbortController();
-    void getRepositoryIndexMetadata(repositoryId, controller.signal)
-      .then(setMetadata)
-      .catch((caughtError: unknown) => {
-        if (!controller.signal.aborted) {
-          setError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not load index metadata.",
-          );
-        }
-      });
-    return () => controller.abort();
-  }, [currentJobId, currentStatus, repositoryId]);
-
-  async function indexRepository() {
-    setStarting(true);
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending) return;
+    setPending(true);
     setError(null);
-    const controller = new AbortController();
-    startControllerRef.current = controller;
     try {
-      const newJob = await startRepositoryIndexing(
-        repositoryId,
-        controller.signal,
-      );
-      if (!controller.signal.aborted) {
-        setJob(newJob);
-      }
+      const repository = await importGitHubRepository({ url: url.trim() });
+      setUrl("");
+      onImported(repository);
     } catch (caughtError) {
-      if (!controller.signal.aborted) {
-        setError(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Could not start repository indexing.",
-        );
-      }
+      setError(caughtError instanceof Error ? caughtError.message : "GitHub import failed.");
     } finally {
-      if (startControllerRef.current === controller) {
-        startControllerRef.current = null;
-        setStarting(false);
-      }
+      setPending(false);
     }
   }
 
-  const isIndexing = isActive(job);
+  return (
+    <form className="repository-register-form" onSubmit={submit}>
+      <label htmlFor="repository-github-url">GitHub repository URL</label>
+      <input
+        id="repository-github-url"
+        type="url"
+        value={url}
+        onChange={(event) => setUrl(event.target.value)}
+        placeholder="https://github.com/owner/repository"
+        required
+        disabled={pending}
+      />
+      {error && <p className="repository-error" role="alert">{error}</p>}
+      <button type="submit" disabled={pending}>
+        {pending ? "Importing repository…" : "Import from GitHub"}
+      </button>
+    </form>
+  );
+}
+
+interface RepositoryCardProps {
+  repository: Repository;
+  selected: boolean;
+  onSelect: () => void;
+}
+
+function RepositoryCard({ repository, selected, onSelect }: RepositoryCardProps) {
+  const queryClient = useQueryClient();
+  const statusQuery = useQuery({
+    queryKey: ["repository-index-status", repository.id],
+    queryFn: ({ signal }) => getRepositoryIndexingStatus(repository.id, signal),
+    refetchInterval: (query) => isActive(query.state.data) ? 2000 : false,
+  });
+  const metadataQuery = useQuery({
+    queryKey: ["repository-index-metadata", repository.id],
+    queryFn: ({ signal }) => getRepositoryIndexMetadata(repository.id, signal),
+  });
+  const indexMutation = useMutation({
+    mutationFn: () => startRepositoryIndexing(repository.id),
+    onSuccess: async (job) => {
+      queryClient.setQueryData(
+        ["repository-index-status", repository.id],
+        job,
+      );
+    },
+  });
+  const job = statusQuery.data;
+  const metadata = metadataQuery.data;
+  const running = isActive(job);
+
+  useEffect(() => {
+    if (job?.status === "completed") {
+      void queryClient.invalidateQueries({
+        queryKey: ["repository-index-metadata", repository.id],
+      });
+    }
+  }, [job?.completed_at, job?.status, queryClient, repository.id]);
+
+  const indexingError = job?.status === "failed" ? job.error_message : null;
+  const showError = indexingError
+    ? indexingErrorMessage(indexingError)
+    : indexMutation.error?.message;
 
   return (
-    <>
-      <button
-        type="button"
-        onClick={() => void indexRepository()}
-        disabled={loadingRepositories || starting || isIndexing}
-      >
-        {starting
-          ? "Starting..."
-          : job?.status === "failed"
-            ? "Retry indexing"
-            : isIndexing
-              ? "Indexing..."
-              : "Index Repository"}
-      </button>
+    <article
+      className={`repository-card${selected ? " repository-card-active" : ""}`}
+      aria-label={`${repository.name}${selected ? ", active repository" : ""}`}
+    >
+      <div className="repository-card-header">
+        <div className="repository-card-title">
+          <h3>{repository.name}</h3>
+          {selected && <span className="active-repository-badge">Active</span>}
+        </div>
+        <span className={`repository-status-pill ${metadata ? "status-indexed" : "status-not-indexed"}`}>
+          {metadata ? "Indexed" : "Not indexed"}
+        </span>
+      </div>
+      <dl className="repository-details">
+        <div>
+          <dt>Local location</dt>
+          <dd title={repository.path}>{repository.path}</dd>
+        </div>
+        <div>
+          <dt>Indexing</dt>
+          <dd>
+            {statusQuery.isPending
+              ? "Checking status…"
+              : statusQuery.isError
+                ? "Status unavailable"
+                : job?.status ?? "Not started"}
+          </dd>
+        </div>
+      </dl>
 
-      {job && (
-        <div className="indexing-status" role="status">
-          <div className="result-header">
-            <strong>
-              {repositoryName}: {job.status}
-            </strong>
-            <span>{job.phase}</span>
+      {statusQuery.isError && (
+        <div className="repository-error-state" role="alert">
+          <p>Could not load indexing status: {statusQuery.error.message}</p>
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => void statusQuery.refetch()}
+          >
+            Retry status
+          </button>
+        </div>
+      )}
+
+      {job && (running || job.status === "completed") && (
+        <div className="repository-index-progress" role="status">
+          <div className="repository-progress-label">
+            <strong>{running ? `Indexing: ${job.phase}` : "Latest indexing completed"}</strong>
+            <span>{job.processed_chunks} / {job.total_chunks} chunks</span>
           </div>
-          <p className="muted">
-            Processed {job.processed_chunks} of {job.total_chunks} chunks
-          </p>
           {job.total_chunks > 0 && (
             <progress
               value={job.processed_chunks}
               max={job.total_chunks}
-              aria-label="Repository indexing progress"
+              aria-label={`Indexing ${repository.name}`}
             />
-          )}
-          {job.status === "failed" && job.error_message && (
-            <p className="indexing-error" role="alert">
-              {job.error_message}
-            </p>
           )}
         </div>
       )}
 
       {metadata && (
-        <p className="muted">
-          Indexed commit {metadata.commit_sha.slice(0, 8)} on{" "}
-          {new Date(metadata.indexed_at).toLocaleString()}
+        <div className="repository-index-metadata">
+          <strong>Last successful index</strong>
+          <span>Commit {metadata.commit_sha.slice(0, 8)}</span>
+          <span>{new Date(metadata.indexed_at).toLocaleString()}</span>
+        </div>
+      )}
+
+      {job?.status === "failed" && (
+        <div className="repository-failure" role="alert">
+          <strong>Latest indexing attempt failed</strong>
+          <p>{showError || "Indexing failed. Retry when the repository is ready."}</p>
+          {metadata && (
+            <p>
+              Your previous successful index from commit {metadata.commit_sha.slice(0, 8)}
+              {" "}is preserved.
+            </p>
+          )}
+        </div>
+      )}
+      {indexMutation.isError && job?.status !== "failed" && (
+        <p className="repository-error" role="alert">{showError}</p>
+      )}
+      {metadataQuery.isError && (
+        <p className="repository-error" role="alert">
+          Could not load successful index metadata: {metadataQuery.error.message}
         </p>
       )}
 
-      {error && (
-        <p className="indexing-error" role="alert">
-          {error}
-        </p>
-      )}
-    </>
+      <div className="repository-card-actions">
+        <button
+          type="button"
+          className={selected ? "secondary-button repository-selected-button" : "secondary-button"}
+          aria-pressed={selected}
+          onClick={onSelect}
+        >
+          {selected ? "Selected repository" : "Select repository"}
+        </button>
+        <button
+          type="button"
+          onClick={() => indexMutation.mutate()}
+          disabled={running || indexMutation.isPending}
+        >
+          {running
+            ? "Indexing…"
+            : indexMutation.isPending
+              ? "Starting…"
+              : job?.status === "failed"
+                ? "Retry indexing"
+                : metadata
+                  ? "Re-index repository"
+                  : "Index repository"}
+        </button>
+        {selected && metadata && (
+          <a className="primary-link" href="#ai-workspace">
+            Open AI Workspace
+          </a>
+        )}
+      </div>
+    </article>
   );
 }

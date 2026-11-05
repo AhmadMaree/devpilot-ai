@@ -37,6 +37,25 @@ export async function getRepositories(
   return (await response.json()) as Repository[];
 }
 
+export async function registerRepository(
+  name: string,
+  path: string,
+  signal?: AbortSignal,
+): Promise<Repository> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/repositories`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name, path }),
+    signal,
+  });
+  if (!response.ok) {
+    throw await responseError(response);
+  }
+  return (await response.json()) as Repository;
+}
+
 export async function startRepositoryIndexing(
   repositoryId: string,
   signal?: AbortSignal,

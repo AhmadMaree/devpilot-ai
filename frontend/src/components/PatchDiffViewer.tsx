@@ -1,51 +1,41 @@
-
 interface PatchDiffViewerProps {
   diff: string;
 }
 
-export function PatchDiffViewer({
-  diff,
-}: PatchDiffViewerProps) {
+export function PatchDiffViewer({ diff }: PatchDiffViewerProps) {
   const lines = diff.split("\n");
 
   return (
     <div
-      style={{
-        overflowX: "auto",
-        border: "1px solid #d1d5db",
-        borderRadius: 8,
-        fontFamily: "monospace",
-        fontSize: 13,
-      }}
+      className="patch-diff"
+      role="region"
+      aria-label="Unified patch diff"
+      tabIndex={0}
     >
-      {lines.map((line, index) => {
-        const isAdded =
-          line.startsWith("+") &&
-          !line.startsWith("+++");
+      <pre>
+        <code>
+          {lines.map((line, index) => {
+            const kind = line.startsWith("@@")
+              ? "diff-hunk"
+              : line.startsWith("+++") || line.startsWith("---")
+                ? "diff-header"
+                : line.startsWith("+")
+                  ? "diff-added"
+                  : line.startsWith("-")
+                    ? "diff-removed"
+                    : "diff-context";
 
-        const isRemoved =
-          line.startsWith("-") &&
-          !line.startsWith("---");
-
-        const background = isAdded
-          ? "#dcfce7"
-          : isRemoved
-            ? "#fee2e2"
-            : "#ffffff";
-
-        return (
-          <div
-            key={index}
-            style={{
-              background,
-              padding: "3px 12px",
-              whiteSpace: "pre",
-            }}
-          >
-            {line || " "}
-          </div>
-        );
-      })}
+            return (
+              <span className={`patch-diff-line ${kind}`} key={`${index}-${line}`}>
+                <span className="patch-diff-line-number" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <span>{line || " "}</span>
+              </span>
+            );
+          })}
+        </code>
+      </pre>
     </div>
   );
 }
