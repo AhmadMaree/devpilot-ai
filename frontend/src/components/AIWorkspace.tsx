@@ -14,6 +14,7 @@ import type {
 } from "../api/types";
 import type { KnownPatchProposal } from "../api/patches/types";
 import { DevelopmentWorkflow } from "./DevelopmentWorkflow";
+import { InvestigationResult } from "./InvestigationResult";
 
 interface AIWorkspaceProps {
   repositoryId: string;
@@ -320,64 +321,5 @@ function AskCode({
 
       {result && <InvestigationResult result={result} />}
     </div>
-  );
-}
-
-function InvestigationResult({ result }: { result: InvestigationResponse }) {
-  return (
-    <>
-      <section className="panel">
-        <div className="result-header">
-          <h2>Answer</h2>
-          <span className={`review-badge ${result.review_passed ? "passed" : "failed"}`}>
-            {result.review_passed ? "Review passed" : "Review failed"}
-          </span>
-        </div>
-        {!result.review_passed && (
-          <div className="review-warning" role="alert">
-            This answer did not pass review. Do not treat it as verified.
-          </div>
-        )}
-        <div className="answer-text">{result.answer}</div>
-        <div className="result-meta">
-          <span>Attempts: {result.attempts}</span>
-          <span>Sources: {result.sources.length}</span>
-        </div>
-      </section>
-
-      <section className="panel">
-        <h2>Source evidence</h2>
-        {result.sources.length === 0 ? (
-          <p className="muted">No supporting source evidence was retrieved.</p>
-        ) : (
-          <div className="sources-list">
-            {result.sources.map((source) => (
-              <div className="source-card" key={source.chunk_id}>
-                <span className="source-label">[{source.source_id}]</span>
-                <div className="source-details">
-                  <strong>{source.file_path}</strong>
-                  <small>Lines {source.start_line}–{source.end_line}</small>
-                  <small>Commit {source.commit_sha.slice(0, 8)}</small>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section className="panel">
-        <h2>Agent execution</h2>
-        <div className="execution-steps">
-          <span>Planner</span><span aria-hidden="true">→</span>
-          <span>Retriever</span><span aria-hidden="true">→</span>
-          <span>Analyst</span><span aria-hidden="true">→</span>
-          <span>Reviewer</span>
-        </div>
-        <div className="execution-details">
-          <p><strong>Plan:</strong> {result.plan}</p>
-          <p><strong>Review:</strong> {result.review_feedback}</p>
-        </div>
-      </section>
-    </>
   );
 }

@@ -11,24 +11,25 @@ export interface InvestigationRequest {
 
 
 export interface InvestigationSource {
-  source_id: string;
-  chunk_id: string;
-  file_path: string;
-  start_line: number;
-  end_line: number;
-  commit_sha: string;
+  source_id?: string;
+  chunk_id?: string;
+  file_path?: string;
+  start_line?: number;
+  end_line?: number;
+  commit_sha?: string;
+  source_text?: string;
 }
 
 
 export interface InvestigationResponse {
   repository_id: string;
-  question: string;
-  plan: string;
-  answer: string;
-  review_passed: boolean;
-  review_feedback: string;
-  attempts: number;
-  sources: InvestigationSource[];
+  question?: string;
+  plan?: string;
+  answer?: string;
+  review_passed?: boolean;
+  review_feedback?: string;
+  attempts?: number;
+  sources?: InvestigationSource[];
 }
 
 

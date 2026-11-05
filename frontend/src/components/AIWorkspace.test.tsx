@@ -104,6 +104,7 @@ function makeJob(status: IndexingJob["status"]): IndexingJob {
 
 function renderWorkspace(options?: {
   id?: string;
+  restoredInvestigation?: SavedInvestigation | null;
 }) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -115,7 +116,7 @@ function renderWorkspace(options?: {
       <AIWorkspace
         repositoryId={options?.id ?? repositoryId}
         repositoryName={options?.id === "" ? null : "Selected Repository"}
-        restoredInvestigation={null}
+        restoredInvestigation={options?.restoredInvestigation ?? null}
         onInvestigationComplete={onInvestigationComplete}
         onOpenProposal={onOpenProposal}
         onProposalCreated={vi.fn()}
@@ -160,8 +161,29 @@ describe("unified AI Workspace", () => {
       .toBeVisible();
     expect(screen.getByText("src/auth.ts")).toBeVisible();
     expect(screen.getByText("Lines 12–27")).toBeVisible();
-    expect(screen.getByText("Search the authentication modules.")).toBeVisible();
+    expect(document.querySelector(".citation-feedback")).toHaveTextContent(
+      "The answer is supported by cited code.",
+    );
     expect(onInvestigationComplete).toHaveBeenCalledWith(savedInvestigation);
+  });
+
+  it("uses the same interactive result for an investigation opened from history", async () => {
+    const historical = {
+      ...savedInvestigation,
+      result: {
+        ...savedInvestigation.result,
+        answer: "Authentication is handled in the auth service [S1].",
+      },
+    };
+    renderWorkspace({ restoredInvestigation: historical });
+
+    const citation = screen.getByRole("button", {
+      name: "Go to source [S1], src/auth.ts",
+    });
+    expect(citation).toBeVisible();
+    fireEvent.click(citation);
+    expect(screen.getByRole("article", { name: "[S1] src/auth.ts" }))
+      .toHaveClass("source-card-selected");
   });
 
   it("shows Ask Code loading and API failure states", async () => {
