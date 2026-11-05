@@ -176,6 +176,7 @@ def investigate(
                 start_line=item["start_line"],
                 end_line=item["end_line"],
                 commit_sha=item["commit_sha"],
+                snippet=item["content"],
             )
             for item in result["evidence"]
         ],

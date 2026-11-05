@@ -154,13 +154,13 @@ export function InvestigationResult({ result }: { result: InvestigationResponse 
     }
 
     try {
-      await navigator.clipboard.writeText(source.source_text ?? "");
-      setCopyStatus("Source snippet copied.");
+      await navigator.clipboard.writeText(source.snippet ?? "");
+      setCopyStatus("Source code copied.");
     } catch (error) {
       setCopyStatus(
         error instanceof Error
-          ? `Could not copy source snippet: ${error.message}`
-          : "Could not copy source snippet.",
+          ? `Could not copy source code: ${error.message}`
+          : "Could not copy source code.",
       );
     }
   }
@@ -225,7 +225,7 @@ export function InvestigationResult({ result }: { result: InvestigationResponse 
               const sourceId = source.source_id;
               const sourceKey = sourceId ?? source.chunk_id ?? `source-${index}`;
               const expanded = expandedSources.has(sourceKey);
-              const snippet = typeof source.source_text === "string" ? source.source_text : "";
+              const snippet = typeof source.snippet === "string" ? source.snippet : "";
               const snippetAvailable = snippet.length > 0;
               const lines = snippet.split(/\r\n|\n|\r/);
               if (snippetAvailable && lines.length > 1 && lines[lines.length - 1] === "" && /(?:\r\n|\n|\r)$/.test(snippet)) {
@@ -275,7 +275,7 @@ export function InvestigationResult({ result }: { result: InvestigationResponse 
                             className="secondary-button source-copy-button"
                             onClick={() => void copySnippet(source)}
                           >
-                            Copy snippet
+                            Copy Code
                           </button>
                         </div>
                         <div className="source-code-scroll">
@@ -297,7 +297,7 @@ export function InvestigationResult({ result }: { result: InvestigationResponse 
                       </>
                     ) : (
                       <p className="source-unavailable-message">
-                        Source text is not included in the investigation response. The file path,
+                        Source code is not included in this investigation. The file path,
                         line range, and indexed commit are shown above.
                       </p>
                     )}

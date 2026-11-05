@@ -86,7 +86,7 @@ describe("investigation result", () => {
 
     fireEvent.click(expand);
     expect(expand).toHaveAttribute("aria-expanded", "true");
-    expect(within(sourceCard).getByText(/Source text is not included/)).toBeVisible();
+    expect(within(sourceCard).getByText(/Source code is not included/)).toBeVisible();
 
     fireEvent.click(within(sourceCard).getByRole("button", { name: /Collapse/ }));
     expect(within(sourceCard).getByRole("button", { name: /Expand/ }))
@@ -103,7 +103,7 @@ describe("investigation result", () => {
       ...result,
       sources: [{
         ...sourceOne,
-        source_text: "function authenticate() {\n  return true;\n}",
+        snippet: "function authenticate() {\n  return true;\n}",
       }],
     };
     render(<InvestigationResult result={resultWithSnippet} />);
@@ -113,10 +113,10 @@ describe("investigation result", () => {
     expect(within(card).getByText("12")).toBeVisible();
     expect(within(card).getByText("13")).toBeVisible();
     expect(within(card).getByText("function authenticate() {")).toBeVisible();
-    fireEvent.click(within(card).getByRole("button", { name: "Copy snippet" }));
+    fireEvent.click(within(card).getByRole("button", { name: "Copy Code" }));
 
     expect(writeText).toHaveBeenCalledWith("function authenticate() {\n  return true;\n}");
-    expect(await screen.findByText("Source snippet copied.")).toBeVisible();
+    expect(await screen.findByText("Source code copied.")).toBeVisible();
   });
 
   it("shows a clear unavailable state and no copy action when source text is missing", () => {
@@ -124,9 +124,9 @@ describe("investigation result", () => {
     const card = screen.getByRole("article", { name: "[S1] src/auth.ts" });
     fireEvent.click(within(card).getByRole("button", { name: /Expand/ }));
 
-    expect(within(card).getByText(/Source text is not included in the investigation response/))
+    expect(within(card).getByText(/Source code is not included in this investigation/))
       .toBeVisible();
-    expect(within(card).queryByRole("button", { name: "Copy snippet" }))
+    expect(within(card).queryByRole("button", { name: "Copy Code" }))
       .not.toBeInTheDocument();
   });
 
@@ -255,7 +255,7 @@ describe("investigation result", () => {
     expect(screen.getByText("No answer returned")).toBeVisible();
     const sourceCard = screen.getByRole("article", { name: "Source legacy.py" });
     fireEvent.click(within(sourceCard).getByRole("button", { name: /Expand/ }));
-    expect(within(sourceCard).getByText(/Source text is not included/)).toBeVisible();
+    expect(within(sourceCard).getByText(/Source code is not included/)).toBeVisible();
   });
 
   it("keeps citation controls keyboard accessible", () => {

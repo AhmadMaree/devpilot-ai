@@ -17,7 +17,7 @@ export interface InvestigationSource {
   start_line?: number;
   end_line?: number;
   commit_sha?: string;
-  source_text?: string;
+  snippet?: string | null;
 }
 
 

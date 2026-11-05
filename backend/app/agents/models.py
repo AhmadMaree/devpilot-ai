@@ -14,6 +14,7 @@ class InvestigationSource(BaseModel):
     start_line: int
     end_line: int
     commit_sha: str
+    snippet: str | None = None
 
 
 class InvestigationResponse(BaseModel):
