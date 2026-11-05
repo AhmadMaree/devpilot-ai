@@ -75,7 +75,7 @@ def create_development_workflow(
         fallback=get_settings().llm_selection
     )
 
-    provider = LLMProviderFactory(selection).create_text_provider()
+    provider = LLMProviderFactory(selection).create_patch_provider()
 
     try:
         result = run_development_workflow(
