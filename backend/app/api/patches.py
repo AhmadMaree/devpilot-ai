@@ -18,6 +18,9 @@ from app.patches.generation import (
     generate_patch
 )
 
+from app.repositories.store import RepositoryStore
+from app.repositories.resolver import resolve_registered_repository
+
 from app.llm.factory import LLMProviderFactory
 from app.llm.store import LLMSelectionStore
 
@@ -52,8 +55,12 @@ def require_local_environment() -> None:
             detail="Patch API is disabled",
         )
 
-def get_repository_root() -> Path:
-    return Path(get_settings().demo_repository_path).resolve()
+def get_repository_root(repository_id: str) -> Path:
+    repository = resolve_registered_repository(
+        repository_id=repository_id,
+        store= RepositoryStore()
+    )
+    return Path(repository.path).resolve()
 
 @router.post(
     "/proposals",
@@ -64,10 +71,7 @@ def create_proposals(
     store: PatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
-    root = get_repository_root()
-
-    if request.repository_id != "demo-repository":
-        raise HTTPException(404, "Repository not found")
+    root = get_repository_root(request.repository_id)
 
     try:
         diff = preview_patch(root, request)
@@ -166,7 +170,7 @@ def approve_proposal(
                 explanation=propsal["explanation"],
             )
         
-        root = get_repository_root()
+        root = get_repository_root(propsal["repository_id"])
         
         res = apply_approved_patch(
             repository_root=root,
@@ -231,7 +235,7 @@ def get_proposal_preview(
 
     try:
         diff = preview_patch(
-            get_repository_root(),
+            get_repository_root(proposal.repository_id),
             proposal,
         )
     except (OSError, ValueError, UnicodeError) as exc:
@@ -256,12 +260,6 @@ def generate_patch_proposal(
 ):
     require_local_environment()
 
-    if request.repository_id != "demo-repository":
-        raise HTTPException(
-            status_code=404,
-            detail="Repository not found",
-        )
-
     selection = LLMSelectionStore().get(
         fallback=get_settings().llm_selection
     )
@@ -270,13 +268,13 @@ def generate_patch_proposal(
 
     try:
         proposal = generate_patch(
-            repository_root=get_repository_root(),
+            repository_root=get_repository_root(request.repository_id),
             request=request,
             generate_text=provider.generate,
         )
 
         diff = preview_patch(
-            repository_root=get_repository_root(),
+            repository_root=get_repository_root(request.repository_id),
             proposal=proposal
         )
 
