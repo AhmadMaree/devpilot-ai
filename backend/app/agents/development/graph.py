@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Literal
+from typing import Literal
 
 from langgraph.graph import END, START, StateGraph
 
@@ -34,7 +35,7 @@ def route_after_developer(
     if (
         state.get("developer_status") == "completed"
         and state.get("error") is None
-        and state.get("proposal") is None
+        and state.get("proposal") is not None
     ):
         return "reviewer"
     return "failed"
