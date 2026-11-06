@@ -246,6 +246,7 @@ def get_proposal_preview(
     store: PatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
+
     saved = store.get(str(proposal_id))
 
     if saved is None:
@@ -262,25 +263,50 @@ def get_proposal_preview(
         explanation=saved["explanation"],
     )
 
+    status = saved["status"]
+
+    response = {
+        "id": saved["id"],
+        "repository_id": saved["repository_id"],
+        "file_path": saved["file_path"],
+        "explanation": saved["explanation"],
+        "status": status,
+        "diff": None,
+    }
+
+    # Applied proposals are historical records.
+    # Do not compare the current file against the original hash.
+    if status == "applied":
+        return response
+
+    # Rejected proposals are also historical records.
+    # They cannot be applied again.
+    if status == "rejected":
+        return response
+
+    # Only pending proposals should be previewed
+    # against the current repository file.
+    if status != "pending":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Proposal cannot be previewed in status '{status}'",
+        )
+
     try:
         diff = preview_patch(
             get_repository_root(proposal.repository_id),
             proposal,
         )
+
     except (OSError, ValueError, UnicodeError) as exc:
         raise HTTPException(
             status_code=409,
             detail=str(exc),
         ) from None
 
-    return {
-        "id": saved["id"],
-        "repository_id": saved["repository_id"],
-        "file_path": saved["file_path"],
-        "explanation": saved["explanation"],
-        "status": saved["status"],
-        "diff": diff,
-    }
+    response["diff"] = diff
+
+    return response
 
 @router.post("/generate")
 def generate_patch_proposal(

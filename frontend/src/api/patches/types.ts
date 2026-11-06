@@ -11,7 +11,7 @@ export interface PatchPreview {
   file_path: string;
   explanation: string;
   status: PatchStatus;
-  diff: string;
+  diff: string | null;
 }
 
 export interface PatchProposalDetails {

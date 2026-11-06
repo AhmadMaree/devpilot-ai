@@ -64,6 +64,10 @@ const preview: PatchPreview = {
     "+throw new Error('Authentication failed');",
   ].join("\n"),
 };
+const historicalPreview: PatchPreview = {
+  ...preview,
+  diff: null,
+};
 const workflowProposal: KnownPatchProposal = {
   id: pendingDetails.id,
   repository_id: activeRepositoryId,
@@ -288,11 +292,16 @@ describe("professional Review Center", () => {
     renderCenter();
 
     expect(await screen.findByText(/File changed since proposal creation/)).toBeVisible();
+    expect(screen.getByText(/DevPilot blocks this diff and will not apply the proposal/))
+      .toBeVisible();
+    expect(screen.getByRole("link", {
+      name: "Open AI Workspace to create a fresh proposal",
+    })).toHaveAttribute("href", "#ai-workspace");
     expect(screen.getByRole("button", { name: "Approve and apply" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Reject" })).toBeEnabled();
   });
 
-  it("handles action conflicts and refreshes proposal status", async () => {
+  it("uses the refreshed terminal status after an action conflict", async () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     vi.mocked(approvePatch).mockRejectedValue(
       new PatchApiError("Proposal is no longer pending", 409),
@@ -309,10 +318,11 @@ describe("professional Review Center", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Approve and apply" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "The repository file changed or this proposal is no longer pending.",
-    );
-    expect(await screen.findAllByText("Applied")).not.toHaveLength(0);
+    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/stale/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and apply" }))
+      .not.toBeInTheDocument();
   });
 
   it("reports service failures without losing the pending proposal state", async () => {
@@ -358,7 +368,43 @@ describe("professional Review Center", () => {
     expect(backLink).toHaveAttribute("href", "#ai-workspace");
   });
 
-  it("handles missing proposals and already-final statuses", async () => {
+  it("renders applied and rejected proposals as read-only historical summaries", async () => {
+    vi.mocked(getPatchPreview).mockResolvedValue(historicalPreview);
+    vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("applied"));
+    renderCenter([{ ...workflowProposal, status: "applied" }]);
+
+    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(screen.getByText(/read-only historical summary/)).toBeVisible();
+    expect(screen.queryByRole("region", { name: "Unified patch diff" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/stale|file changed/i)).not.toBeInTheDocument();
+    expect(getPatchPreview).toHaveBeenCalledWith(workflowProposal.id);
+
+    cleanup();
+    vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("rejected"));
+    renderCenter([{ ...workflowProposal, status: "rejected" }]);
+
+    expect(await screen.findByText("Proposal rejected")).toBeVisible();
+    expect(screen.getByText(/No changes were applied/)).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/stale|file changed/i)).not.toBeInTheDocument();
+  });
+
+  it("does not show stale-file errors for terminal proposals", async () => {
+    vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("applied"));
+    vi.mocked(getPatchPreview).mockRejectedValue(
+      new PatchApiError("File changed since proposal creation", 409),
+    );
+    renderCenter([{ ...workflowProposal, status: "applied" }]);
+
+    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(screen.queryByText(/File changed since proposal creation/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/stale/i)).not.toBeInTheDocument();
+  });
+
+  it("handles missing proposals and hides actions for other non-pending statuses", async () => {
     vi.mocked(getPatchProposalDetails).mockRejectedValue(
       new PatchApiError("Patch proposal not found", 404),
     );
@@ -369,16 +415,15 @@ describe("professional Review Center", () => {
     cleanup();
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("rejected"));
     renderCenter([{ ...workflowProposal, status: "rejected" }]);
-    await screen.findByRole("region", { name: "Unified patch diff" });
-    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Approve and apply" })).toBeDisabled();
+    expect(await screen.findByText("Proposal rejected")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
 
     cleanup();
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("applied"));
     renderCenter([{ ...workflowProposal, status: "applied" }]);
-    await screen.findByRole("region", { name: "Unified patch diff" });
-    expect(screen.getAllByText("Applied")).toHaveLength(2);
-    expect(screen.getByRole("button", { name: "Reject" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Approve and apply" })).toBeDisabled();
+    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
   });
 });

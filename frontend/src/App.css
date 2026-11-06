@@ -2301,6 +2301,29 @@ button:disabled {
   color: #80530d;
 }
 
+.review-preview-unavailable p {
+  margin: 0 0 8px;
+}
+
+.review-preview-unavailable .secondary-button {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 1px solid #e5c982;
+  border-radius: 8px;
+  background: #fff;
+  color: #68460b;
+  font-size: 12px;
+  font-weight: 650;
+  text-decoration: none;
+}
+
+.review-preview-unavailable .secondary-button:hover {
+  background: #fffdf7;
+}
+
 .review-diff-section {
   display: grid;
   gap: 10px;

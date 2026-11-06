@@ -29,6 +29,10 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const actionLockRef = useRef(false);
+  const isPending = details?.status === "pending";
+  const staleFile = isPending
+    && (error?.startsWith("File changed since proposal creation.") ?? false);
+  const hasDiff = typeof preview?.diff === "string" && preview.diff.length > 0;
 
   useEffect(() => {
     let active = true;
@@ -43,7 +47,9 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
             if (active) setPreview(currentPreview);
           })
           .catch((caughtError: unknown) => {
-            if (active) setError(reviewErrorMessage(caughtError, "preview"));
+            if (active && currentDetails.status === "pending") {
+              setError(reviewErrorMessage(caughtError, "preview"));
+            }
           });
       })
       .catch((caughtError: unknown) => {
@@ -70,7 +76,7 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
       actionLockRef.current
       || !details
       || details.status !== "pending"
-      || (action === "approve" && preview === null)
+      || (action === "approve" && !hasDiff)
     ) {
       return;
     }
@@ -191,57 +197,92 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
             </section>
           )}
 
-          {error && <p className="review-error" role="alert">{error}</p>}
+          {error && (isPending || !details) && (
+            <p className="review-error" role="alert">{error}</p>
+          )}
           {message && <p className="review-success" role="status">{message}</p>}
 
-          <section className="review-diff-section" aria-labelledby="review-diff-title">
-            <div className="review-diff-heading">
-              <div>
-                <h3 id="review-diff-title">Unified diff</h3>
-                <p className="muted">Review every line before deciding.</p>
-              </div>
-              {preview && <span>{preview.diff.split("\n").length} lines</span>}
-            </div>
-            {preview ? (
-              <PatchDiffViewer diff={preview.diff} />
-            ) : (
-              <p className="review-preview-unavailable" role="status">
-                {error?.startsWith("File changed")
-                  ? "The target file changed after this proposal was created. Its diff is no longer safe to review or apply."
-                  : "The diff is unavailable. Refresh or return to the workspace and generate a new proposal."}
+          {details?.status === "applied" ? (
+            <section className="proposal-terminal-summary" aria-live="polite">
+              <h3>Patch applied successfully</h3>
+              <p>
+                This proposal was applied to <strong>{details.file_path}</strong>.
+                This is a read-only historical summary.
               </p>
-            )}
-          </section>
+            </section>
+          ) : details?.status === "rejected" ? (
+            <section className="proposal-terminal-summary" aria-live="polite">
+              <h3>Proposal rejected</h3>
+              <p>
+                This proposal for <strong>{details.file_path}</strong> was rejected.
+                No changes were applied.
+              </p>
+            </section>
+          ) : (
+            <section className="review-diff-section" aria-labelledby="review-diff-title">
+              <div className="review-diff-heading">
+                <div>
+                  <h3 id="review-diff-title">Unified diff</h3>
+                  <p className="muted">Review every line before deciding.</p>
+                </div>
+                {hasDiff && <span>{preview.diff!.split("\n").length} lines</span>}
+              </div>
+              {hasDiff ? (
+                <PatchDiffViewer diff={preview.diff!} />
+              ) : staleFile ? (
+                <div className="review-preview-unavailable" role="status">
+                  <p>
+                    This proposal is stale: the target file changed after it was
+                    created. DevPilot blocks this diff and will not apply the
+                    proposal because it could overwrite newer edits.
+                  </p>
+                  <p>
+                    Generate a replacement proposal against the current file.
+                    The stale proposal can still be rejected.
+                  </p>
+                  <a className="secondary-button" href="#ai-workspace">
+                    Open AI Workspace to create a fresh proposal
+                  </a>
+                </div>
+              ) : (
+                <p className="review-preview-unavailable" role="status">
+                  The diff is unavailable. Refresh or return to the workspace and generate a new proposal.
+                </p>
+              )}
+            </section>
+          )}
 
           <div className="review-action-bar">
             <a className="secondary-button review-back-link" href="#ai-workspace">
               Back to AI Workspace
             </a>
-            <div className="action-buttons">
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={submitting || !details}
-                onClick={() => void handleRefresh()}
-              >
-                Refresh status
-              </button>
-              <button
-                type="button"
-                className="secondary-button review-reject-button"
-                disabled={submitting || !details || details.status !== "pending"}
-                onClick={() => void handleAction("reject")}
-              >
-                {submitting ? "Processing…" : "Reject"}
-              </button>
-              <button
-                type="button"
-                disabled={submitting || !details || !canReview(details.status, preview)}
-                onClick={() => void handleAction("approve")}
-              >
-                {submitting ? "Applying…" : "Approve and apply"}
-              </button>
-            </div>
+            {isPending && (
+              <div className="action-buttons">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={submitting || !details}
+                  onClick={() => void handleRefresh()}
+                >
+                  Refresh status
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button review-reject-button"
+                  disabled={submitting || !details}
+                  onClick={() => void handleAction("reject")}
+                >
+                  {submitting ? "Processing…" : "Reject"}
+                </button>
+                <button
+                  type="button"
+                  disabled={submitting || !canReview(details.status, preview)}
+                  onClick={() => void handleAction("approve")}
+                >
+                  {submitting ? "Applying…" : "Approve and apply"}
+                </button>
+              </div>
+            )}
           </div>
         </>
       )}
