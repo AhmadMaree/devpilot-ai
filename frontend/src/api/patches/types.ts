@@ -23,6 +23,15 @@ export interface PatchProposalDetails {
   created_at: string;
 }
 
+export interface PatchProposalSummary {
+  id: string;
+  repository_id: string;
+  file_path: string;
+  explanation: string;
+  status: PatchStatus;
+  created_at: string;
+}
+
 export interface PatchActionResponse {
   id: string;
   status: PatchStatus;
@@ -46,7 +55,7 @@ export interface GeneratedPatchResponse {
 export interface KnownPatchProposal {
   id: string;
   repository_id: string;
-  source: "workflow" | "direct";
+  source: "workflow" | "direct" | "persisted";
   file_path: string;
   request_context: string;
   known_at: string;

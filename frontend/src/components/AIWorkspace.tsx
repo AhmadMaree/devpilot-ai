@@ -23,6 +23,7 @@ interface AIWorkspaceProps {
   onInvestigationComplete: (investigation: SavedInvestigation) => void;
   onOpenProposal: (proposalId: string) => void;
   onProposalCreated: (proposal: KnownPatchProposal) => void;
+  onWorkflowFinished?: () => void;
 }
 
 type WorkspaceMode = "ask" | "change";
@@ -38,6 +39,7 @@ export function AIWorkspace({
   onInvestigationComplete,
   onOpenProposal,
   onProposalCreated,
+  onWorkflowFinished,
 }: AIWorkspaceProps) {
   const [mode, setMode] = useState<WorkspaceMode>("ask");
   const metadataQuery = useQuery<RepositoryIndexMetadata | null>({
@@ -155,6 +157,7 @@ export function AIWorkspace({
           repositoryId={repositoryId}
           onOpenProposal={onOpenProposal}
           onProposalCreated={onProposalCreated}
+          onWorkflowFinished={onWorkflowFinished}
         />
       </section>
     </div>

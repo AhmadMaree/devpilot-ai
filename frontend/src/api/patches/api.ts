@@ -1,6 +1,7 @@
 
 import type {
     PatchProposalDetails,
+    PatchProposalSummary,
     PatchPreview,
     PatchActionResponse,
     GeneratePatchRequest,
@@ -31,21 +32,29 @@ const request = async <T>(
     );
 
     if (!response.ok) {
-        let detail = `HTTP ${response.status}`;
-        try {
-            const body = await response.json();
-
-            if (typeof body.detail === "string") {
-                detail = body.detail;
-            }
-        } catch {
-        // Keep the HTTP status as the fallback.
-        }
-
+        const detail = response.status === 503
+            ? "Patch service unavailable"
+            : `Patch request failed (${response.status})`;
         throw new PatchApiError(detail, response.status);
     }
 
     return response.json() as Promise<T>;
+}
+
+export const getPatchProposals = (
+    repositoryId: string,
+    offset: number,
+    signal?: AbortSignal,
+): Promise<PatchProposalSummary[]> => {
+    const params = new URLSearchParams({
+        repository_id: repositoryId,
+        limit: "50",
+        offset: String(offset),
+    });
+    return request<PatchProposalSummary[]>(
+        `/api/v1/patches/proposals?${params.toString()}`,
+        { signal },
+    );
 }
 
 

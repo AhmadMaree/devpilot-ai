@@ -5,21 +5,18 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 from .models import Repository
-
-DEFAULT_DB_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "data"
-    / "devpilot.db"
-)
+from app.core import get_settings
 
 
 class RepositoryStore:
 
     def __init__(
         self,
-        db_path: Path = DEFAULT_DB_PATH
+        db_path: Path | str | None = None
     ):
-        self.db_path = db_path
+        self.db_path = Path(
+            db_path if db_path is not None else get_settings().database_path
+        )
 
     def _connect(self):
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

@@ -8,7 +8,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from app.repositories.index_jobs import IndexJobStateChangedError
-from app.repositories.store import DEFAULT_DB_PATH
+from app.core import get_settings
 
 
 class RepositoryIndexMetadata(BaseModel):
@@ -19,8 +19,8 @@ class RepositoryIndexMetadata(BaseModel):
 
 
 class RepositoryIndexStore:
-    def __init__(self, db_path: Path = DEFAULT_DB_PATH):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None):
+        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
 
     def _connect(self):
         self.db_path.parent.mkdir(

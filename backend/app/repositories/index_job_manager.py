@@ -21,8 +21,9 @@ from app.repositories.indexer import (
     RepositoryNotFoundError,
     index_repository,
 )
-from app.repositories.store import DEFAULT_DB_PATH, RepositoryStore
+from app.repositories.store import RepositoryStore
 from app.utils.helper import RepositoryHasUncommittedChangesError
+from app.core import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +38,13 @@ IndexFunction = Callable[..., dict]
 class RepositoryIndexJobManager:
     def __init__(
         self,
-        db_path: Path = DEFAULT_DB_PATH,
+        db_path: Path | str | None = None,
         index_function: IndexFunction = index_repository,
         embeddings_factory: Callable[[], OllamaEmbeddingProvider] = (
             OllamaEmbeddingProvider
         ),
     ):
-        self.db_path = Path(db_path)
+        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
         self.store = IndexJobStore(self.db_path)
         self.index_function = index_function
         self.embeddings_factory = embeddings_factory

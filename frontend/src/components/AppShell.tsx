@@ -30,7 +30,7 @@ const pageDetails: Record<Destination, { title: string; description: string }> =
   },
   activity: {
     title: "Activity",
-    description: "Browse saved investigations and current-session proposal activity.",
+    description: "Everything your AI assistant has worked on",
   },
   settings: {
     title: "Settings",

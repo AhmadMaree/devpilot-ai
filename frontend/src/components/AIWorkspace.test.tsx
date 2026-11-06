@@ -225,8 +225,9 @@ describe("unified AI Workspace", () => {
     expect(screen.getByText("Could not complete")).toBeVisible();
     expect(screen.getAllByText("Not reached")).toHaveLength(2);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "The developer could not produce a valid proposal.",
+      "The workflow could not complete successfully.",
     );
+    expect(screen.queryByText(failedWorkflow.error!)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Open proposal in Review Center" }))
       .not.toBeInTheDocument();
   });

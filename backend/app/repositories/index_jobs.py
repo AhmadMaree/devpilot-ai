@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel
 
-from app.repositories.store import DEFAULT_DB_PATH
+from app.core import get_settings
 
 IndexJobStatus = Literal["queued", "running", "completed", "failed"]
 
@@ -42,8 +42,10 @@ class IndexingCancelledError(Exception):
 
 
 class IndexJobStore:
-    def __init__(self, db_path: Path = DEFAULT_DB_PATH):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None):
+        self.db_path = Path(
+            db_path if db_path is not None else get_settings().database_path
+        )
 
     def _connect(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)

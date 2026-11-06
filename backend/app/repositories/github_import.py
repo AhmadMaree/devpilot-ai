@@ -10,14 +10,11 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from .store import RepositoryStore
 from .validation import validate_repository_path, InvalidRepositoryError
+from app.core import get_settings
 
 
 class GitHubImportError(Exception):
     pass
-
-DEFAULT_GITHUB_WORKSPACE = Path(
-    "D:/Projects/devpilot-managed-repositories"
-)
 
 REPOSITORY_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]+$")
 
@@ -66,7 +63,7 @@ def parse_github_repository_url(url: str) -> tuple[str, str]:
 def import_public_github_repository(
     url: str,
     store: RepositoryStore,
-    workspace: Path = DEFAULT_GITHUB_WORKSPACE,
+    workspace: Path | None = None,
 ):
     owner, repository_name = parse_github_repository_url(url)
 
@@ -103,6 +100,9 @@ def import_public_github_repository(
             "Repository is not public or does not match the requested URL"
         )
 
+    if workspace is None:
+        workspace = get_settings().resolved_github_workspace_dir
+    workspace = Path(workspace)
     workspace = workspace.resolve()
     workspace.mkdir(parents=True, exist_ok=True)
 

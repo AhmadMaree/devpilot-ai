@@ -1,6 +1,8 @@
 import type {
+  DevelopmentWorkflowDetail,
   DevelopmentWorkflowRequest,
   DevelopmentWorkflowResponse,
+  DevelopmentWorkflowSummary,
 } from "./types";
 
 const API_BASE_URL =
@@ -23,27 +25,46 @@ export async function runDevelopmentWorkflow(
   );
 
   if (!response.ok) {
-    let message = `Workflow request failed (${response.status})`;
-
-    try {
-      const body: unknown = await response.json();
-
-      if (
-        typeof body === "object" &&
-        body !== null &&
-        "detail" in body
-      ) {
-        const detail = body.detail;
-        if (typeof detail === "string") {
-          message = detail;
-        }
-      }
-    } catch {
-      // Preserve the HTTP status message.
-    }
-
-    throw new Error(message);
+    throw new Error(`Workflow request failed (${response.status})`);
   }
 
   return (await response.json()) as DevelopmentWorkflowResponse;
+}
+
+export async function getDevelopmentWorkflows(
+  repositoryId: string,
+  offset: number,
+  signal?: AbortSignal,
+): Promise<DevelopmentWorkflowSummary[]> {
+  const params = new URLSearchParams({
+    repository_id: repositoryId,
+    limit: "50",
+    offset: String(offset),
+  });
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/development/workflows?${params.toString()}`,
+    { signal },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not load workflow history (${response.status})`);
+  }
+
+  return (await response.json()) as DevelopmentWorkflowSummary[];
+}
+
+export async function getDevelopmentWorkflow(
+  workflowId: string,
+  signal?: AbortSignal,
+): Promise<DevelopmentWorkflowDetail> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/v1/development/workflows/${encodeURIComponent(workflowId)}`,
+    { signal },
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not load workflow details (${response.status})`);
+  }
+
+  return (await response.json()) as DevelopmentWorkflowDetail;
 }

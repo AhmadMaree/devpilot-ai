@@ -1,14 +1,18 @@
 import { useCallback } from "react";
-import { useQueries, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type {
   KnownPatchProposal,
   PatchProposalDetails,
+  PatchProposalSummary,
   PatchStatus,
 } from "../api/patches/types";
-import { getPatchProposalDetails } from "../api/patches/api";
+import { getPatchProposals } from "../api/patches/api";
 import { PatchGenerator } from "./PatchGenerator";
 import { PatchReview } from "./PatchReview";
+
+const PROPOSAL_PAGE_SIZE = 50;
 
 interface ReviewCenterProps {
   repositoryId: string;
@@ -27,28 +31,67 @@ export function ReviewCenter({
   onProposalCreated,
   onStatusChange,
 }: ReviewCenterProps) {
-  const activeProposals = proposals.filter(
+  const [pagination, setPagination] = useState({ repositoryId, page: 0 });
+  const page = pagination.repositoryId === repositoryId ? pagination.page : 0;
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, PatchStatus>>({});
+  const queryClient = useQueryClient();
+  const proposalsQuery = useQuery({
+    queryKey: ["patch-proposals", repositoryId, page],
+    queryFn: ({ signal }) =>
+      getPatchProposals(repositoryId, page * PROPOSAL_PAGE_SIZE, signal),
+    enabled: Boolean(repositoryId),
+  });
+  const persistedProposals = (proposalsQuery.data ?? []).map(toKnownProposal);
+  const activeSessionProposals = proposals.filter(
     (proposal) => proposal.repository_id === repositoryId,
   );
-  const proposalDetails = useQueries({
-    queries: activeProposals.map((proposal) => ({
-      queryKey: ["review-proposal-details", proposal.id],
-      queryFn: () => getPatchProposalDetails(proposal.id),
-    })),
+  const proposalsById = new Map(
+    persistedProposals.map((proposal) => [proposal.id, proposal]),
+  );
+  activeSessionProposals.forEach((proposal) => {
+    const persistedProposal = proposalsById.get(proposal.id);
+    proposalsById.set(proposal.id, {
+      ...proposal,
+      known_at: persistedProposal?.known_at ?? proposal.known_at,
+      status: persistedProposal?.status ?? proposal.status,
+    });
   });
-  const queryClient = useQueryClient();
+  const activeProposals = [...proposalsById.values()];
+  const activeProposalsRef = useRef(activeProposals);
+  const statusOverridesRef = useRef(statusOverrides);
   const selectedProposal = activeProposals.find(
     (proposal) => proposal.id === selectedProposalId,
   );
+  useEffect(() => {
+    activeProposalsRef.current = activeProposals;
+    statusOverridesRef.current = statusOverrides;
+  });
+
   const handleStatusChange = useCallback(
     (proposalId: string, status: PatchStatus) => {
+      const currentStatus = activeProposalsRef.current.find(
+        (proposal) => proposal.id === proposalId,
+      )?.status;
+      const previousStatus = statusOverridesRef.current[proposalId] ?? currentStatus;
+      setStatusOverrides((current) => ({ ...current, [proposalId]: status }));
       queryClient.setQueryData<PatchProposalDetails>(
         ["review-proposal-details", proposalId],
         (current) => current ? { ...current, status } : current,
       );
+      queryClient.setQueryData<PatchProposalSummary[]>(
+        ["patch-proposals", repositoryId, page],
+        (current) => current?.map((proposal) =>
+          proposal.id === proposalId ? { ...proposal, status } : proposal,
+        ),
+      );
+      if (previousStatus !== status) {
+        void queryClient.invalidateQueries({
+          queryKey: ["patch-proposals", repositoryId],
+        });
+      }
       onStatusChange(proposalId, status);
     },
-    [onStatusChange, queryClient],
+    [onStatusChange, page, queryClient, repositoryId],
   );
 
   return (
@@ -72,8 +115,7 @@ export function ReviewCenter({
           <div>
             <h2 id="known-proposals-title">Known proposals</h2>
             <p className="muted">
-              Only proposals created or opened during this browser session are shown.
-              DevPilot does not currently provide a proposal-list API.
+              Proposals from the active repository, including saved work from earlier sessions.
             </p>
           </div>
           <span className="review-proposal-count">{activeProposals.length}</span>
@@ -85,20 +127,33 @@ export function ReviewCenter({
             <p>Choose an active repository before reviewing proposals.</p>
             <a href="#repositories">Open Repositories</a>
           </div>
+        ) : proposalsQuery.isPending && activeProposals.length === 0 ? (
+          <p role="status">Loading proposals…</p>
+        ) : proposalsQuery.isError ? (
+          <div className="review-empty-state" role="alert">
+            <strong>Could not load proposals</strong>
+            <p>Check that the backend is available, then retry.</p>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void proposalsQuery.refetch()}
+              disabled={proposalsQuery.isFetching}
+            >
+              Retry
+            </button>
+          </div>
         ) : activeProposals.length === 0 ? (
           <div className="review-empty-state">
-            <strong>No known proposals for this repository</strong>
+            <strong>No proposals for this repository</strong>
             <p>
               Make a change in AI Workspace or create a legacy direct patch below.
-              Proposals from previous browser sessions are not listed automatically.
             </p>
             <a href="#ai-workspace">Open AI Workspace</a>
           </div>
         ) : (
           <div className="review-proposal-list">
-            {activeProposals.map((proposal, index) => {
-              const detailsQuery = proposalDetails[index];
-              const currentStatus = detailsQuery?.data?.status ?? proposal.status;
+            {activeProposals.map((proposal) => {
+              const currentStatus = statusOverrides[proposal.id] ?? proposal.status;
               return (
               <button
                 type="button"
@@ -109,27 +164,49 @@ export function ReviewCenter({
               >
                 <span className="review-proposal-row-main">
                   <strong>{proposal.file_path}</strong>
-                  {detailsQuery?.data?.explanation && (
-                    <span>{detailsQuery.data.explanation}</span>
-                  )}
                   <span>{proposal.request_context}</span>
                   <small>
-                    {proposal.source === "workflow"
-                      ? "Developer → Reviewer → QA workflow"
-                      : "Legacy direct patch generator"}
-                    {" · "}Added {new Date(proposal.known_at).toLocaleString()}
+                    {proposalSourceLabel(proposal.source)}
+                    {" · "}{new Date(proposal.known_at).toLocaleString()}
                   </small>
                 </span>
                 <span className={`proposal-status status-${currentStatus ?? "unknown"}`}>
-                  {detailsQuery?.isPending
-                    ? "Checking status…"
-                    : detailsQuery?.isError
-                      ? "Status unavailable"
-                      : statusLabel(currentStatus ?? "pending")}
+                  {currentStatus ? statusLabel(currentStatus) : "Status unavailable"}
                 </span>
               </button>
               );
             })}
+          </div>
+        )}
+
+        {repositoryId && !proposalsQuery.isPending && !proposalsQuery.isError && (
+          <div className="activity-pagination" aria-label="Proposal pages">
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setPagination({
+                repositoryId,
+                page: Math.max(0, page - 1),
+              })}
+              disabled={page === 0 || proposalsQuery.isFetching}
+            >
+              Previous
+            </button>
+            <span>Page {page + 1}</span>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => setPagination({
+                repositoryId,
+                page: page + 1,
+              })}
+              disabled={
+                proposalsQuery.data.length < PROPOSAL_PAGE_SIZE ||
+                proposalsQuery.isFetching
+              }
+            >
+              Next
+            </button>
           </div>
         )}
       </section>
@@ -186,4 +263,27 @@ function statusLabel(status: PatchStatus): string {
     case "failed":
       return "Could not apply";
   }
+}
+
+function proposalSourceLabel(source: KnownPatchProposal["source"]): string {
+  switch (source) {
+    case "workflow":
+      return "Developer → Reviewer → QA workflow";
+    case "direct":
+      return "Legacy direct patch generator";
+    case "persisted":
+      return "Saved proposal";
+  }
+}
+
+function toKnownProposal(proposal: PatchProposalSummary): KnownPatchProposal {
+  return {
+    id: proposal.id,
+    repository_id: proposal.repository_id,
+    source: "persisted",
+    file_path: proposal.file_path,
+    request_context: proposal.explanation,
+    known_at: proposal.created_at,
+    status: proposal.status,
+  };
 }

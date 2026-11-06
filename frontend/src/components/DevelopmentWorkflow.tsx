@@ -10,12 +10,14 @@ interface DevelopmentWorkflowProps {
   repositoryId: string;
   onOpenProposal: (proposalId: string) => void;
   onProposalCreated: (proposal: KnownPatchProposal) => void;
+  onWorkflowFinished?: () => void;
 }
 
 export function DevelopmentWorkflow({
   repositoryId,
   onOpenProposal,
   onProposalCreated,
+  onWorkflowFinished,
 }: DevelopmentWorkflowProps) {
   const [filePath, setFilePath] = useState("");
   const [instruction, setInstruction] = useState("");
@@ -92,6 +94,9 @@ export function DevelopmentWorkflow({
       if (controllerRef.current === controller) {
         controllerRef.current = null;
         setLoading(false);
+      }
+      if (!controller.signal.aborted) {
+        onWorkflowFinished?.();
       }
     }
   }
@@ -204,7 +209,7 @@ export function DevelopmentWorkflow({
 
           {result.error && (
             <p role="alert" className="development-error">
-              {result.error}
+              The workflow could not complete successfully. Review the stage feedback above or try again.
             </p>
           )}
 

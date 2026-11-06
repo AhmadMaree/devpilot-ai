@@ -1,6 +1,9 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from app.llm.models import LLMSelection
+from pathlib import Path
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
 class Settings(BaseSettings):
@@ -17,6 +20,14 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
 
+    github_workspace_dir: Path = Path(
+        "D:/Projects/devpilot-managed-repositories"
+    )
+
+    # Storage
+    data_dir: Path = BACKEND_ROOT / "data"
+    database_filename: str = "devpilot.db"
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
@@ -27,6 +38,29 @@ class Settings(BaseSettings):
             provider=self.llm_provider,
             model = self.llm_model
         )
+
+    @property
+    def resolved_github_workspace_dir(self) -> Path:
+        path = self.github_workspace_dir.expanduser()
+
+        if not path.is_absolute():
+            path = BACKEND_ROOT / path
+        return path.resolve()
+    
+    @property
+    def resolved_data_dir(self) -> Path:
+        path = self.data_dir.expanduser()
+        if not path.is_absolute():
+            path = BACKEND_ROOT / path
+        return path.resolve()
+    
+    @property
+    def database_path(self) -> Path:
+        return self.resolved_data_dir / self.database_filename
+
+    @property
+    def indexes_dir(self) -> Path:
+        return self.resolved_data_dir / "indexes"
 
 
 @lru_cache

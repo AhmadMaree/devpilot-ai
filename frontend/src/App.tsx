@@ -120,7 +120,19 @@ function App() {
       proposal,
     ]);
     setProposalId(proposal.id);
-  }, []);
+    void queryClient.invalidateQueries({
+      queryKey: ["patch-proposals", proposal.repository_id],
+    });
+  }, [queryClient]);
+
+  const handleWorkflowFinished = useCallback(() => {
+    void queryClient.invalidateQueries({
+      queryKey: ["development-workflows", repositoryId],
+    });
+    void queryClient.invalidateQueries({
+      queryKey: ["patch-proposals", repositoryId],
+    });
+  }, [queryClient, repositoryId]);
 
   const handleOpenProposal = useCallback((id: string) => {
     setProposalId(id);
@@ -183,6 +195,7 @@ function App() {
           }}
           onOpenProposal={handleOpenProposal}
           onProposalCreated={handleProposalCreated}
+          onWorkflowFinished={handleWorkflowFinished}
         />
       )}
 
@@ -199,7 +212,7 @@ function App() {
 
       {destination === "activity" && (
         <Activity
-          proposals={knownProposals}
+          repositoryId={repositoryId}
           selectedInvestigationId={selectedId}
           openError={activityError}
           onOpenInvestigation={(id) => void openInvestigation(id)}

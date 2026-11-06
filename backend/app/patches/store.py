@@ -3,15 +3,13 @@ from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
-
-from app.storage.investigations import DEFAULT_DB_PATH
-
 from .models import PatchProposal
+from app.core import get_settings
 
 
 class PatchProposalStore:
-    def __init__(self, db_path: str = DEFAULT_DB_PATH):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None):
+        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
 
     def _connect(self) -> sqlite3.Connection:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -104,3 +102,31 @@ class PatchProposalStore:
             expected_status="pending",
             new_status="applying",
         )
+
+    def list_by_repository(
+        self,
+        repository_id: str,
+        limit: int = 50,
+        offset: int = 0
+    ) -> list[dict]:
+        if not 1 <= limit <= 100:
+            raise ValueError("limit must be between 1 and 100")
+        if offset < 0:
+            raise ValueError("offset must not be negative")
+
+        with closing(self._connect()) as conn:
+            rows = conn.execute("""
+                SELECT
+                    id,
+                    repository_id,
+                    file_path,
+                    explanation,
+                    status,
+                    created_at
+                FROM patch_proposals
+                WHERE repository_id=?
+                ORDER BY created_at DESC, rowid DESC
+                LIMIT ? OFFSET ?
+            """,(repository_id,limit,offset)).fetchall()
+
+        return [dict(row) for row in rows]

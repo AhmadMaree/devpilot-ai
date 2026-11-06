@@ -145,21 +145,21 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
           <div className="review-context-grid">
             <div>
               <span className="review-meta-label">Created from</span>
-              <strong>
-                {proposal.source === "workflow"
-                  ? "Developer → Reviewer → QA workflow"
-                  : "Legacy direct patch generator"}
-              </strong>
+              <strong>{proposalSourceLabel(proposal.source)}</strong>
             </div>
             <div>
-              <span className="review-meta-label">Added to this session</span>
+              <span className="review-meta-label">Created</span>
               <strong>{new Date(proposal.known_at).toLocaleString()}</strong>
             </div>
           </div>
 
           <div className="review-context">
             <h3>Change request</h3>
-            <p>{proposal.request_context}</p>
+            <p>
+              {proposal.source === "persisted"
+                ? "The original request is not available in the proposal record."
+                : proposal.request_context}
+            </p>
             {details?.explanation && (
               <>
                 <h3>Proposal explanation</h3>
@@ -257,6 +257,17 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
     } catch (caughtError) {
       setError(reviewErrorMessage(caughtError, "refresh"));
     }
+  }
+}
+
+function proposalSourceLabel(source: KnownPatchProposal["source"]): string {
+  switch (source) {
+    case "workflow":
+      return "Developer → Reviewer → QA workflow";
+    case "direct":
+      return "Legacy direct patch generator";
+    case "persisted":
+      return "Saved proposal";
   }
 }
 

@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   PatchApiError,
   approvePatch,
+  getPatchProposals,
   getPatchPreview,
   getPatchProposalDetails,
   rejectPatch,
@@ -14,6 +15,7 @@ import type {
   KnownPatchProposal,
   PatchPreview,
   PatchProposalDetails,
+  PatchProposalSummary,
   PatchStatus,
 } from "../api/patches/types";
 import { ReviewCenter } from "./ReviewCenter";
@@ -29,6 +31,7 @@ vi.mock("../api/patches/api", () => ({
     }
   },
   approvePatch: vi.fn(),
+  getPatchProposals: vi.fn(),
   getPatchPreview: vi.fn(),
   getPatchProposalDetails: vi.fn(),
   rejectPatch: vi.fn(),
@@ -86,6 +89,14 @@ const directProposal: KnownPatchProposal = {
   known_at: "2026-11-05T16:05:00Z",
   status: "pending",
 };
+const savedProposal: PatchProposalSummary = {
+  id: "saved-proposal",
+  repository_id: activeRepositoryId,
+  file_path: "src/saved.ts",
+  explanation: "Persisted proposal explanation.",
+  status: "pending",
+  created_at: "2026-11-05T16:10:00Z",
+};
 
 function makeDetails(status: PatchStatus): PatchProposalDetails {
   return { ...pendingDetails, status };
@@ -115,6 +126,7 @@ function renderCenter(proposals: KnownPatchProposal[] = [workflowProposal], sele
 describe("professional Review Center", () => {
   beforeEach(() => {
     window.history.replaceState(null, "", "/");
+    vi.mocked(getPatchProposals).mockResolvedValue([]);
     vi.mocked(getPatchProposalDetails).mockResolvedValue(pendingDetails);
     vi.mocked(getPatchPreview).mockResolvedValue(preview);
     vi.mocked(approvePatch).mockResolvedValue({
@@ -147,13 +159,41 @@ describe("professional Review Center", () => {
     expect(screen.getByText("2")).toBeVisible();
   });
 
-  it("shows a clear empty state without inventing proposals", () => {
+  it("shows a clear empty state when the repository has no proposals", async () => {
     renderCenter([], "");
 
-    expect(screen.getByText("No known proposals for this repository")).toBeVisible();
-    expect(screen.getByText(/previous browser sessions are not listed automatically/))
+    expect(await screen.findByText("No proposals for this repository")).toBeVisible();
+    expect(screen.getByText(/Make a change in AI Workspace/))
       .toBeVisible();
     expect(screen.queryByRole("button", { name: /proposal-workflow/i })).not.toBeInTheDocument();
+  });
+
+  it("loads saved proposals and limits the listing to pages of 50", async () => {
+    vi.mocked(getPatchProposals).mockResolvedValue([
+      savedProposal,
+      ...Array.from({ length: 49 }, (_, index) => ({
+        ...savedProposal,
+        id: `saved-${index}`,
+        file_path: `src/saved-${index}.ts`,
+      })),
+    ]);
+    renderCenter([], "");
+
+    expect(await screen.findByText("src/saved.ts")).toBeVisible();
+    expect(getPatchProposals).toHaveBeenCalledWith(
+      activeRepositoryId,
+      0,
+      expect.any(AbortSignal),
+    );
+    expect(screen.getByRole("button", { name: "Next" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await waitFor(() => {
+      expect(getPatchProposals).toHaveBeenCalledWith(
+        activeRepositoryId,
+        50,
+        expect.any(AbortSignal),
+      );
+    });
   });
 
   it("renders unified diff additions and removals with distinct accessible rows", async () => {
@@ -204,7 +244,6 @@ describe("professional Review Center", () => {
     vi.spyOn(window, "confirm").mockReturnValue(true);
     const detailsResponses = [
       pendingDetails,
-      pendingDetails,
       makeDetails("applied"),
     ];
     vi.mocked(getPatchProposalDetails).mockImplementation(
@@ -217,7 +256,7 @@ describe("professional Review Center", () => {
 
     expect(await screen.findByText("Patch applied.")).toBeVisible();
     await waitFor(() => {
-      expect(getPatchProposalDetails).toHaveBeenCalledTimes(3);
+      expect(getPatchProposalDetails).toHaveBeenCalledTimes(2);
       expect(onStatusChange).toHaveBeenCalledWith(pendingDetails.id, "applied");
     });
     expect(screen.getAllByText("Applied")).toHaveLength(2);
@@ -225,7 +264,6 @@ describe("professional Review Center", () => {
 
   it("rejects a pending proposal without applying repository changes", async () => {
     const detailsResponses = [
-      pendingDetails,
       pendingDetails,
       makeDetails("rejected"),
     ];
@@ -260,7 +298,6 @@ describe("professional Review Center", () => {
       new PatchApiError("Proposal is no longer pending", 409),
     );
     const detailsResponses = [
-      pendingDetails,
       pendingDetails,
       makeDetails("applied"),
     ];

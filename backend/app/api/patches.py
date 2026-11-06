@@ -6,7 +6,7 @@ import httpx
 from pydantic import BaseModel
 from uuid import UUID
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Query
 
 from app.patches.store import PatchProposalStore, PatchProposal
 from app.core import get_settings
@@ -40,6 +40,14 @@ class PatchActionResponse(BaseModel):
     id: UUID
     status: str
     message: str
+
+class PatchProposalSummary(BaseModel):
+    id: UUID
+    repository_id: UUID
+    file_path: str
+    explanation: str
+    status: str
+    created_at: str
 
 def get_patch_store() -> PatchProposalStore:
     require_local_environment()
@@ -88,6 +96,24 @@ def create_proposals(
         diff=diff
     )
 
+@router.get(
+    "/proposals",
+    response_model=list[PatchProposalSummary]
+)
+def list_proposals(
+    repository_id: UUID,
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0 , ge=0),
+    store: PatchProposalStore = Depends(get_patch_store)
+):
+    require_local_environment()
+    get_repository_root(str(repository_id))
+
+    return store.list_by_repository(
+        repository_id=str(repository_id),
+        limit=limit,
+        offset=offset
+    )
 
 @router.get("/proposals/{proposal_id}")
 def get_proposal(
@@ -108,6 +134,7 @@ def get_proposal(
         "status": proposal["status"],
         "created_at": proposal["created_at"],
     }
+
 
 @router.post(
     "/proposals/{proposal_id}/reject",
@@ -309,6 +336,4 @@ def generate_patch_proposal(
     return {
         **saved,
         "diff": diff,
-    }
-
-    
+    }  

@@ -2,19 +2,13 @@ import sqlite3
 from pathlib import Path
 
 from app.llm.models import LLMSelection
-
-
-DEFAULT_DB_PATH = (
-    Path(__file__).resolve().parents[2]
-    / "data"
-    / "devpilot.db"
-)
+from app.core import get_settings
 
 
 class LLMSelectionStore:
 
-    def __init__(self, db_path: Path = DEFAULT_DB_PATH):
-        self.db_path = Path(db_path)
+    def __init__(self, db_path: Path | str | None = None):
+        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
 
 
     def initialize(self) -> None:
