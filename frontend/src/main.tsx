@@ -13,7 +13,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthGate>
-        <App />
+        {(authActions) => <App {...authActions} />}
       </AuthGate>
     </QueryClientProvider>
   </StrictMode>,

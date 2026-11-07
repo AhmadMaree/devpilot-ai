@@ -13,6 +13,9 @@ function NavigationHarness() {
       destination={destination}
       repositoryName="Example repository"
       modelLabel="ollama · qwen3:4b"
+      onLogout={() => undefined}
+      logoutError=""
+      loggingOut={false}
     >
       <p data-testid="destination-content">{destination}</p>
     </AppShell>

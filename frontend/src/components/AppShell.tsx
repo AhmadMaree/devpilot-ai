@@ -43,6 +43,9 @@ interface AppShellProps {
   destination: Destination;
   repositoryName: string | null;
   modelLabel: string | null;
+  onLogout: () => void;
+  logoutError: string;
+  loggingOut: boolean;
   children: ReactNode;
 }
 
@@ -50,6 +53,9 @@ export function AppShell({
   destination,
   repositoryName,
   modelLabel,
+  onLogout,
+  logoutError,
+  loggingOut,
   children,
 }: AppShellProps) {
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
@@ -127,8 +133,28 @@ export function AppShell({
         </nav>
 
         <div className={styles["sidebar-footer"]}>
-          <span className={styles["local-indicator"]} aria-hidden="true" />
-          <span>Local development</span>
+          <div className={styles["account-summary"]}>
+            <span className={styles["account-avatar"]} aria-hidden="true">DP</span>
+            <span className={styles["account-details"]}>
+              <strong>DevPilot AI</strong>
+              <small>
+                <span className={styles["local-indicator"]} aria-hidden="true" />
+                Signed in
+              </small>
+            </span>
+          </div>
+          {logoutError && (
+            <p className={styles["logout-error"]} role="alert">{logoutError}</p>
+          )}
+          <button
+            type="button"
+            className={styles["logout-button"]}
+            onClick={onLogout}
+            disabled={loggingOut}
+          >
+            <span className={styles["logout-icon"]} aria-hidden="true" />
+            {loggingOut ? "Logging out…" : "Log out"}
+          </button>
         </div>
       </aside>
 

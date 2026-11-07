@@ -18,7 +18,13 @@ import { Activity } from "./components/Activity";
 import { useHashNavigation } from "./hooks/useHashNavigation";
 import "./App.scss";
 
-function App() {
+interface AppProps {
+  onLogout: () => void;
+  logoutError: string;
+  loggingOut: boolean;
+}
+
+function App({ onLogout, logoutError, loggingOut }: AppProps) {
   const queryClient = useQueryClient();
   const destination = useHashNavigation();
   const repositoriesQuery = useQuery({
@@ -130,6 +136,9 @@ function App() {
           ? `${llmSelectionQuery.data.provider} · ${llmSelectionQuery.data.model}`
           : null
       }
+      onLogout={onLogout}
+      logoutError={logoutError}
+      loggingOut={loggingOut}
     >
       {destination === "dashboard" && (
         <>

@@ -12,7 +12,11 @@ import {
 import { LoginPage } from "./LoginPage";
 
 interface AuthGateProps {
-  children: ReactNode;
+  children: (actions: {
+    onLogout: () => void;
+    logoutError: string;
+    loggingOut: boolean;
+  }) => ReactNode;
 }
 
 export function AuthGate({ children }: AuthGateProps) {
@@ -21,6 +25,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [session, setSession] = useState<AuthSession | null>(null);
   const [checking, setChecking] = useState(true);
   const [error, setError] = useState("");
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -49,7 +54,9 @@ export function AuthGate({ children }: AuthGateProps) {
   }, []);
 
   async function handleLogout() {
+    if (loggingOut) return;
     setError("");
+    setLoggingOut(true);
 
     try {
       await logout();
@@ -59,6 +66,8 @@ export function AuthGate({ children }: AuthGateProps) {
       setSession(null);
     } catch {
       setError("Logout failed. Please try again.");
+    } finally {
+      setLoggingOut(false);
     }
   }
 
@@ -77,19 +86,9 @@ export function AuthGate({ children }: AuthGateProps) {
     );
   }
 
-  return (
-    <>
-      <div className="auth-toolbar">
-        <span>DevPilot AI · Signed in</span>
-
-        <button type="button" onClick={() => void handleLogout()}>
-          Log out
-        </button>
-
-        {error && <p role="alert">{error}</p>}
-      </div>
-
-      {children}
-    </>
-  );
+  return children({
+    onLogout: () => void handleLogout(),
+    logoutError: error,
+    loggingOut,
+  });
 }
