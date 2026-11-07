@@ -1,0 +1,70 @@
+name: DevPilot AI CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend — Python
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+      - name: Check Python formatting and lint
+        run: |
+          ruff check .
+          ruff format --check
+      - name: Run backend tests
+        run: python -m pytest -v
+  
+  frontend:
+    name: Frontend - React
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+    
+    steps:
+        - name: Checkout repository
+          uses: actions/checkout@v4
+        
+        - name: Set up Docker Buildx
+          uses: docker/setup-buildx-action@v3
+
+        - name: Build Backend images
+          uses: docker/build-push-action@v6
+          with:
+            context: ./backend
+            file: ./backend/Dockerfile
+            push: false
+            tags: devpilot-backend:ci
+        
+        - name: Build frontend image
+          uses: docker/build-push-action@v6
+          with:
+            context: ./frontend
+            file: ./frontend/Dockerfile
+            push: false
+            tags: devpilot-frontend:ci
