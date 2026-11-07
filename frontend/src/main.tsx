@@ -1,14 +1,20 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './styles/globals.scss'
-import App from './App.tsx'
-import { QueryClientProvider } from '@tanstack/react-query'
-import { queryClient } from './queryClient'
 
-createRoot(document.getElementById('root')!).render(
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { QueryClientProvider } from "@tanstack/react-query";
+
+import "./styles/globals.scss";
+
+import App from "./App";
+import { AuthGate } from "./components/AuthGate";
+import { queryClient } from "./queryClient";
+
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <App />
+      <AuthGate>
+        <App />
+      </AuthGate>
     </QueryClientProvider>
   </StrictMode>,
-)
+);

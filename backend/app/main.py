@@ -13,8 +13,11 @@ from .api.llm import router as llm_router
 from .api.patches import router as patches_router
 from .api.questions import router as questions_router
 from .api.development import router as development_router
+from app.api.auth import router as auth_router
 from .api.routes import router
 from .core import get_settings
+from app.auth.sessions import initialize_auth_tables
+
 
 
 
@@ -23,6 +26,8 @@ def create_app() -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
+        initialize_auth_tables()
+
         manager = RepositoryIndexJobManager()
         manager.start()
         app.state.index_job_manager = manager
@@ -47,6 +52,7 @@ def create_app() -> FastAPI:
 
     #Public route
     app.include_router(router)
+    app.include_router(auth_router)
 
     #Protected route
     protected = [Depends(require_api_key)]

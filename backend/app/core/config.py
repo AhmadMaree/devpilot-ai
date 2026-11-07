@@ -30,12 +30,17 @@ class Settings(BaseSettings):
     data_dir: Path = BACKEND_ROOT / "data"
     database_filename: str = "devpilot.db"
 
-    #apikey
-    local_api_key: SecretStr = SecretStr("")
-
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
     )
+
+    # Authentication
+    local_api_key: SecretStr = SecretStr("")
+    auth_password_hash: SecretStr = SecretStr("")
+    auth_session_hours: int = 12
+    auth_cookie_secure: bool = False
+    auth_browser_origin: str = "http://localhost:8080"
+
 
     @property
     def llm_selection(self) -> LLMSelection:

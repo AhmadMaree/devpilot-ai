@@ -67,11 +67,13 @@ def list_providers(
 def list_models(
     provider: LLMProviderType = LLMProviderType.OLLAMA,
     _: None = Depends(require_development),
-):  
+):
+    settings = get_settings()
+
     if provider == LLMProviderType.OLLAMA:
         try:
             response = httpx.get(
-                "http://127.0.0.1:11434/api/tags",
+                f"{settings.ollama_base_url.rstrip('/')}/api/tags",
                 timeout=10,
             )
             response.raise_for_status()
@@ -120,11 +122,12 @@ def update_selection(
     selection: LLMSelection,
     store: LLMSelectionStore = Depends(get_selection_store),
     _: None = Depends(require_development),
-):
+):  
+    settings = get_settings()
     if selection.provider == LLMProviderType.OLLAMA:
         try:
             response = httpx.get(
-                "http://127.0.0.1:11434/api/tags",
+                f"{settings.ollama_base_url.rstrip('/')}/api/tags",
                 timeout=10,
             )
             response.raise_for_status()
