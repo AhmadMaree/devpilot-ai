@@ -1,4 +1,5 @@
 @use "../styles/breakpoints" as breakpoints;
+@use "../styles/typography" as typography;
 
 .app-shell {
   display: flex;
@@ -203,6 +204,7 @@
 }
 
 .app-header h1 {
+  @include typography.heading-lg;
   margin: 6px 0 4px;
   color: #172033;
   font-size: clamp(24px, 3vw, 30px);
@@ -210,6 +212,7 @@
 }
 
 .app-header .page-description {
+  @include typography.body-sm;
   margin: 0;
   font-size: 13px;
 }

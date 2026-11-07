@@ -181,8 +181,12 @@
 
 .review-detail-header h2 {
   margin-bottom: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-family-mono);
   font-size: 18px;
+}
+
+.review-proposal-row-main > strong {
+  font-family: var(--font-family-mono);
 }
 
 .review-context-grid {
@@ -435,4 +439,3 @@
     flex: 1;
   }
 }
-

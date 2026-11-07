@@ -215,6 +215,10 @@
   color: var(--color-success);
 }
 
+.repository-details dd {
+  font-family: var(--font-family-mono);
+}
+
 .repository-failure,
 .repository-error-state {
   margin-top: 14px;
@@ -396,6 +400,5 @@
     transition-duration: 0.01ms !important;
   }
 }
-
 
 

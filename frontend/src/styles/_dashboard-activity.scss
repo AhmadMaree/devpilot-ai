@@ -106,7 +106,10 @@
   border-radius: 4px;
   background: #f0f2f6;
   color: #3d4a60;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.dashboard-repository-location {
+  font-family: var(--font-family-mono);
 }
 
 .dashboard-previous-index-note {
@@ -338,4 +341,3 @@
     flex-direction: column;
   }
 }
-

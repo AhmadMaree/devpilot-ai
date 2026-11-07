@@ -587,6 +587,10 @@
   font-size: 12px;
 }
 
+.activity-detail-summary > span {
+  font-family: var(--font-family-mono);
+}
+
 .activity-review-proposal {
   min-height: 38px;
   margin-top: 16px;
