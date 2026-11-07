@@ -1,0 +1,61 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    environment:
+      ENVIRONMENT: development
+      DATA_DIR: /app/data
+      DATABASE_FILENAME: devpilot.db
+      GITHUB_WORKSPACE_DIR: /app/repositories
+      DEMO_REPOSITORY_PATH: ""
+      LLM_PROVIDER: ollama
+      LLM_MODEL: qwen3:4b
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    
+    env_file:
+      - .env.docker
+    
+    volumes:
+      - devpilot_data:/app/data
+      - devpilot_repositories:/app/repositories
+    
+    networks:
+      - devpilot_network
+    
+    restart: unless-stopped
+
+    healthcheck:
+      test: 
+        - CMD
+        - python
+        - -c 
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    
+    ports: 
+      - "127.0.0.1:8080:80"
+    
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - devpilot_network
+    restart: unless-stopped
+
+volumes:
+  devpilot_data:
+  devpilot_repositories:
+
+networks:
+  devpilot_network:
+    driver: bridge

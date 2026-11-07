@@ -1,16 +1,18 @@
 import httpx
 
 from app.patches.generation import GeneratedPatch
-
+from app.core import get_settings
 
 class OllamaPatchProvider:
     def __init__(
         self,
         model: str = "qwen3:4b",
-        base_url: str = "http://127.0.0.1:11434",
+        base_url: str | None = None,
     ):
         self.model = model
-        self.base_url = base_url
+        self.base_url =  self.base_url = (
+            base_url or get_settings().ollama_base_url
+        ).rstrip("/")
 
     def generate(self, prompt: str) -> str:
         response = httpx.post(

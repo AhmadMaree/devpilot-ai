@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     environment: str = "development"
     frontend_origin: str = "http://localhost:5173"
     demo_repository_path: str = ""
+    ollama_base_url: str = "http://localhost:11434"
 
     #selection llm
     llm_provider: str = "ollama"

@@ -1,15 +1,17 @@
 import httpx
 
 from .prompts import SYS_PROMPT
-
+from app.core import get_settings
 
 class OllamaChatProvider:
     def __init__(
         self,
-        base_url: str = "http://localhost:11434",
+        base_url: str | None = None,
         model: str = "qwen3:4b",
     ):
-        self.base_url = base_url.rstrip("/")
+        self.base_url = (
+            base_url or get_settings().ollama_base_url
+        ).rstrip("/")
         self.model = model
 
     def generate(self, prompt: str) -> str:
