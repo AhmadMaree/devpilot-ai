@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.api import development
 from app.api.patches import get_patch_store
+from app.core.security import require_api_key
 from app.main import app
 from app.patches.models import PatchProposal
 from app.patches.store import PatchProposalStore
@@ -72,6 +73,8 @@ def workflow_api(tmp_path, monkeypatch):
         lambda self, fallback: fallback,
     )
 
+    # These tests cover workflow behavior, not API-key authentication.
+    app.dependency_overrides[require_api_key] = lambda: None
     app.dependency_overrides[get_patch_store] = lambda: patch_store
     app.dependency_overrides[development.get_workflow_store] = lambda: history_store
 
