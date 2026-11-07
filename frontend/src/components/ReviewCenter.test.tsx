@@ -68,6 +68,18 @@ const historicalPreview: PatchPreview = {
   ...preview,
   diff: null,
 };
+const savedHistoricalPreview: PatchPreview = {
+  ...preview,
+  diff: [
+    "diff --git a/src/auth.ts b/src/auth.ts",
+    "--- a/src/auth.ts",
+    "+++ b/src/auth.ts",
+    "@@ -10,2 +10,3 @@",
+    " unchanged();",
+    "-throw new Error('bad');",
+    "+throw new Error('Authentication failed');",
+  ].join("\n"),
+};
 const workflowProposal: KnownPatchProposal = {
   id: pendingDetails.id,
   repository_id: activeRepositoryId,
@@ -253,6 +265,9 @@ describe("professional Review Center", () => {
     vi.mocked(getPatchProposalDetails).mockImplementation(
       async () => detailsResponses.shift() ?? makeDetails("applied"),
     );
+    vi.mocked(getPatchPreview)
+      .mockResolvedValueOnce(preview)
+      .mockResolvedValue(savedHistoricalPreview);
     const { onStatusChange } = renderCenter();
     await screen.findByRole("region", { name: "Unified patch diff" });
 
@@ -261,9 +276,11 @@ describe("professional Review Center", () => {
     expect(await screen.findByText("Patch applied.")).toBeVisible();
     await waitFor(() => {
       expect(getPatchProposalDetails).toHaveBeenCalledTimes(2);
+      expect(getPatchPreview).toHaveBeenCalledTimes(2);
       expect(onStatusChange).toHaveBeenCalledWith(pendingDetails.id, "applied");
     });
-    expect(screen.getAllByText("Applied")).toHaveLength(2);
+    expect(await screen.findByText("Applied successfully")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Unified patch diff" })).toBeVisible();
   });
 
   it("rejects a pending proposal without applying repository changes", async () => {
@@ -274,6 +291,9 @@ describe("professional Review Center", () => {
     vi.mocked(getPatchProposalDetails).mockImplementation(
       async () => detailsResponses.shift() ?? makeDetails("rejected"),
     );
+    vi.mocked(getPatchPreview)
+      .mockResolvedValueOnce(preview)
+      .mockResolvedValue(savedHistoricalPreview);
     renderCenter();
     await screen.findByRole("region", { name: "Unified patch diff" });
 
@@ -283,6 +303,7 @@ describe("professional Review Center", () => {
     expect(rejectPatch).toHaveBeenCalledWith(workflowProposal.id);
     expect(approvePatch).not.toHaveBeenCalled();
     expect(await screen.findAllByText("Rejected")).not.toHaveLength(0);
+    expect(screen.getByRole("region", { name: "Unified patch diff" })).toBeVisible();
   });
 
   it("explains stale-file and SHA conflicts and disables unsafe approval", async () => {
@@ -318,7 +339,7 @@ describe("professional Review Center", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Approve and apply" }));
 
-    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(await screen.findByText("Applied successfully")).toBeVisible();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.queryByText(/stale/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve and apply" }))
@@ -368,14 +389,14 @@ describe("professional Review Center", () => {
     expect(backLink).toHaveAttribute("href", "#ai-workspace");
   });
 
-  it("renders applied and rejected proposals as read-only historical summaries", async () => {
+  it("renders applied and rejected proposals with read-only historical diffs", async () => {
     vi.mocked(getPatchPreview).mockResolvedValue(historicalPreview);
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("applied"));
     renderCenter([{ ...workflowProposal, status: "applied" }]);
 
-    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
-    expect(screen.getByText(/read-only historical summary/)).toBeVisible();
-    expect(screen.queryByRole("region", { name: "Unified patch diff" })).not.toBeInTheDocument();
+    expect(await screen.findByText("Applied successfully")).toBeVisible();
+    expect(screen.getByText(/read-only historical preview/)).toBeVisible();
+    expect(screen.getByText(/Historical diff unavailable/)).toBeVisible();
     expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
     expect(screen.queryByText(/stale|file changed/i)).not.toBeInTheDocument();
@@ -383,10 +404,13 @@ describe("professional Review Center", () => {
 
     cleanup();
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("rejected"));
+    vi.mocked(getPatchPreview).mockResolvedValue(savedHistoricalPreview);
     renderCenter([{ ...workflowProposal, status: "rejected" }]);
 
     expect(await screen.findByText("Proposal rejected")).toBeVisible();
     expect(screen.getByText(/No changes were applied/)).toBeVisible();
+    expect(screen.getByRole("region", { name: "Unified patch diff" }))
+      .toHaveTextContent("Authentication failed");
     expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
     expect(screen.queryByText(/stale|file changed/i)).not.toBeInTheDocument();
@@ -399,7 +423,7 @@ describe("professional Review Center", () => {
     );
     renderCenter([{ ...workflowProposal, status: "applied" }]);
 
-    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(await screen.findByText("Applied successfully")).toBeVisible();
     expect(screen.queryByText(/File changed since proposal creation/)).not.toBeInTheDocument();
     expect(screen.queryByText(/stale/i)).not.toBeInTheDocument();
   });
@@ -422,7 +446,7 @@ describe("professional Review Center", () => {
     cleanup();
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("applied"));
     renderCenter([{ ...workflowProposal, status: "applied" }]);
-    expect(await screen.findByText("Patch applied successfully")).toBeVisible();
+    expect(await screen.findByText("Applied successfully")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
   });

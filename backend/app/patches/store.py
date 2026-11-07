@@ -3,8 +3,10 @@ from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
-from .models import PatchProposal
+
 from app.core import get_settings
+
+from .models import PatchProposal
 
 
 class PatchProposalStore:
@@ -29,14 +31,34 @@ class PatchProposalStore:
                 replacement_content TEXT NOT NULL,
                 explanation TEXT NOT NULL,
                 status TEXT NOT NULL,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                diff TEXT
             )
             """)
 
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(patch_proposals)"
+                ).fetchall()
+            }
+
+            if "diff" not in columns:
+                connection.execute(
+                    """
+                    ALTER TABLE patch_proposals
+                    ADD COLUMN diff TEXT
+                    """
+                )
+
     def create(
         self,
-        proposal: PatchProposal
+        proposal: PatchProposal,
+        *,
+        diff: str| None = None
     ) -> dict:
+        self.initialize()
+
         proposal_id = str(uuid4())
         created_at = datetime.now(UTC).isoformat()
         with closing(self._connect()) as conn, conn:
@@ -44,13 +66,13 @@ class PatchProposalStore:
             
             INSERT INTO patch_proposals(
                 id, repository_id, file_path, expected_sha256,
-                replacement_content, explanation, status, created_at
+                replacement_content, explanation, status, created_at,diff
             )
-            VALUES (?,?,?,?,?,?,'pending',?)
+            VALUES (?,?,?,?,?,?,'pending',?,?)
             """,(
                 proposal_id,proposal.repository_id,proposal.file_path,
                 proposal.expected_sha256,proposal.replacement_content,
-                proposal.explanation,created_at
+                proposal.explanation,created_at,diff
             ))
 
         return {

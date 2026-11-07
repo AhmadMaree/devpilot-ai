@@ -89,7 +89,7 @@ def create_proposals(
     if not diff:
         raise HTTPException(400, "Patch contains no changes")
 
-    saved = store.create(request)
+    saved = store.create(request,diff=diff)
 
     return PatchCreateResponse(
         **saved,
@@ -271,17 +271,10 @@ def get_proposal_preview(
         "file_path": saved["file_path"],
         "explanation": saved["explanation"],
         "status": status,
-        "diff": None,
+        "diff": saved.get("diff"),
     }
 
-    # Applied proposals are historical records.
-    # Do not compare the current file against the original hash.
-    if status == "applied":
-        return response
-
-    # Rejected proposals are also historical records.
-    # They cannot be applied again.
-    if status == "rejected":
+    if status in ("applied", "rejected", "failed"):
         return response
 
     # Only pending proposals should be previewed
@@ -293,7 +286,7 @@ def get_proposal_preview(
         )
 
     try:
-        diff = preview_patch(
+        current_diff = preview_patch(
             get_repository_root(proposal.repository_id),
             proposal,
         )
@@ -304,7 +297,7 @@ def get_proposal_preview(
             detail=str(exc),
         ) from None
 
-    response["diff"] = diff
+    response["diff"] = current_diff
 
     return response
 
@@ -358,7 +351,7 @@ def generate_patch_proposal(
             detail="Developer Agent could not produce a valid patch",
         ) from None
 
-    saved = store.create(proposal)
+    saved = store.create(proposal, diff=diff)
     return {
         **saved,
         "diff": diff,

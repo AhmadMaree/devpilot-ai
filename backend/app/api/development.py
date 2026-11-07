@@ -233,7 +233,7 @@ def create_development_workflow(
             detail=message,
         ) from None
 
-    saved = store.create(proposal)
+    saved = store.create(proposal, diff=diff)
 
     response.proposal_id = UUID(saved["id"])
     response.diff = diff

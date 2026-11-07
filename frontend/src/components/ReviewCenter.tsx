@@ -88,6 +88,12 @@ export function ReviewCenter({
         void queryClient.invalidateQueries({
           queryKey: ["patch-proposals", repositoryId],
         });
+        void queryClient.invalidateQueries({
+          queryKey: ["review-proposal-details", proposalId],
+        });
+        void queryClient.invalidateQueries({
+          queryKey: ["review-proposal-preview", proposalId],
+        });
       }
       onStatusChange(proposalId, status);
     },

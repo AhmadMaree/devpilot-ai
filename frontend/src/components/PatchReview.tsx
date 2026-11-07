@@ -30,9 +30,11 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
   const [message, setMessage] = useState<string | null>(null);
   const actionLockRef = useRef(false);
   const isPending = details?.status === "pending";
+  const isHistorical = details?.status === "applied" || details?.status === "rejected";
   const staleFile = isPending
     && (error?.startsWith("File changed since proposal creation.") ?? false);
-  const hasDiff = typeof preview?.diff === "string" && preview.diff.length > 0;
+  const diff = preview?.diff;
+  const hasDiff = typeof diff === "string" && diff.length > 0;
 
   useEffect(() => {
     let active = true;
@@ -44,11 +46,16 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
         onStatusChange(proposal.id, currentDetails.status);
         return getPatchPreview(proposal.id)
           .then((currentPreview) => {
-            if (active) setPreview(currentPreview);
+            if (active) {
+              setPreview(currentPreview);
+              setError(null);
+            }
           })
           .catch((caughtError: unknown) => {
             if (active && currentDetails.status === "pending") {
               setError(reviewErrorMessage(caughtError, "preview"));
+            } else if (active && isTerminalStatus(currentDetails.status)) {
+              setError("Could not load the saved historical diff. Retry to try again.");
             }
           });
       })
@@ -64,10 +71,26 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
     };
   }, [onStatusChange, proposal.id]);
 
-  async function refreshDetails(): Promise<PatchProposalDetails | null> {
+  async function refreshProposalData(
+    preserveError = false,
+  ): Promise<PatchProposalDetails> {
     const latest = await getPatchProposalDetails(proposal.id);
     setDetails(latest);
     onStatusChange(proposal.id, latest.status);
+    try {
+      const latestPreview = await getPatchPreview(proposal.id);
+      setPreview(latestPreview);
+      if (!preserveError) setError(null);
+    } catch (caughtError) {
+      if (latest.status === "pending") {
+        setError(reviewErrorMessage(caughtError, "preview"));
+      } else if (isTerminalStatus(latest.status)) {
+        setError("Could not load the saved historical diff. Retry to try again.");
+      } else {
+        setError(null);
+      }
+      throw caughtError;
+    }
     return latest;
   }
 
@@ -102,26 +125,22 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
           ? await approvePatch(proposal.id)
           : await rejectPatch(proposal.id);
         setMessage(result.message);
+        onStatusChange(proposal.id, result.status);
       } catch (caughtError) {
         setError(reviewErrorMessage(caughtError, action));
         try {
-          await refreshDetails();
-          if (caughtError instanceof PatchApiError && caughtError.status === 409) {
-            setPreview(await getPatchPreview(proposal.id));
-          }
+          await refreshProposalData(true);
         } catch {
-          if (caughtError instanceof PatchApiError && caughtError.status === 409) {
-            setPreview(null);
-          }
+          // Keep the action error; the refreshed status or preview may be unavailable.
         }
         return;
       }
 
       try {
-        await refreshDetails();
+        await refreshProposalData();
       } catch (caughtError) {
         setError(
-          `The action completed, but proposal status could not be refreshed: ${reviewErrorMessage(caughtError, "refresh")}`,
+          `The action completed, but proposal history could not be refreshed: ${reviewErrorMessage(caughtError, "refresh")}`,
         );
       }
     } finally {
@@ -204,10 +223,10 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
 
           {details?.status === "applied" ? (
             <section className="proposal-terminal-summary" aria-live="polite">
-              <h3>Patch applied successfully</h3>
+              <h3>Applied successfully</h3>
               <p>
-                This proposal was applied to <strong>{details.file_path}</strong>.
-                This is a read-only historical summary.
+                Patch applied to <strong>{details.file_path}</strong>. This is a
+                read-only historical preview.
               </p>
             </section>
           ) : details?.status === "rejected" ? (
@@ -218,17 +237,36 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
                 No changes were applied.
               </p>
             </section>
-          ) : (
+          ) : null}
+
+          {isHistorical ? (
+            <section className="review-diff-section" aria-labelledby="review-diff-title">
+              <div className="review-diff-heading">
+                <div>
+                  <h3 id="review-diff-title">Historical unified diff</h3>
+                  <p className="muted">Saved when this proposal was created.</p>
+                </div>
+                {hasDiff && <span>{diff.split("\n").length} lines</span>}
+              </div>
+              {hasDiff ? (
+                <PatchDiffViewer diff={diff} />
+              ) : (
+                <p className="review-preview-unavailable" role="status">
+                  Historical diff unavailable — this proposal was created before diff history was enabled.
+                </p>
+              )}
+            </section>
+          ) : details?.status !== "applied" && details?.status !== "rejected" ? (
             <section className="review-diff-section" aria-labelledby="review-diff-title">
               <div className="review-diff-heading">
                 <div>
                   <h3 id="review-diff-title">Unified diff</h3>
                   <p className="muted">Review every line before deciding.</p>
                 </div>
-                {hasDiff && <span>{preview.diff!.split("\n").length} lines</span>}
+                {hasDiff && <span>{diff.split("\n").length} lines</span>}
               </div>
               {hasDiff ? (
-                <PatchDiffViewer diff={preview.diff!} />
+                <PatchDiffViewer diff={diff} />
               ) : staleFile ? (
                 <div className="review-preview-unavailable" role="status">
                   <p>
@@ -250,7 +288,7 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
                 </p>
               )}
             </section>
-          )}
+          ) : null}
 
           <div className="review-action-bar">
             <a className="secondary-button review-back-link" href="#ai-workspace">
@@ -292,9 +330,7 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
   async function handleRefresh() {
     setError(null);
     try {
-      await refreshDetails();
-      const latestPreview = await getPatchPreview(proposal.id);
-      setPreview(latestPreview);
+      await refreshProposalData();
     } catch (caughtError) {
       setError(reviewErrorMessage(caughtError, "refresh"));
     }
@@ -335,7 +371,14 @@ function FeedbackItem({
 }
 
 function canReview(status: PatchStatus, preview: PatchPreview | null): boolean {
-  return status === "pending" && preview !== null;
+  return status === "pending"
+    && preview !== null
+    && typeof preview.diff === "string"
+    && preview.diff.length > 0;
+}
+
+function isTerminalStatus(status: PatchStatus): boolean {
+  return status === "applied" || status === "rejected";
 }
 
 function statusLabel(status: PatchStatus): string {
