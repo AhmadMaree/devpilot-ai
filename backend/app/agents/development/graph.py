@@ -16,6 +16,7 @@ def mark_ready(state: DevelopmentState) -> dict:
         "error": None,
     }
 
+
 def mark_failed(state: DevelopmentState) -> dict:
     return {
         "workflow_status": "failed",
@@ -28,9 +29,8 @@ def mark_failed(state: DevelopmentState) -> dict:
         ),
     }
 
-def route_after_developer(
-    state: DevelopmentState
-)-> Literal["reviewer", "failed"]:
+
+def route_after_developer(state: DevelopmentState) -> Literal["reviewer", "failed"]:
 
     if (
         state.get("developer_status") == "completed"
@@ -40,43 +40,34 @@ def route_after_developer(
         return "reviewer"
     return "failed"
 
+
 def route_after_reviewer(
     state: DevelopmentState,
 ) -> Literal["qa", "failed"]:
-    if (
-        state.get("review_passed") is True
-        and state.get("error") is None
-    ):
+    if state.get("review_passed") is True and state.get("error") is None:
         return "qa"
 
     return "failed"
 
+
 def route_after_qa(
     state: DevelopmentState,
 ) -> Literal["ready", "failed"]:
-    if (
-        state.get("qa_passed") is True
-        and state.get("error") is None
-    ):
+    if state.get("qa_passed") is True and state.get("error") is None:
         return "ready"
 
     return "failed"
+
 
 def build_development_graph(
     repository_root: Path,
     generate_text: Callable[[str], str],
 ):
-    """ Build a Developer -> Reviewer -> QA LangGraph."""
+    """Build a Developer -> Reviewer -> QA LangGraph."""
 
     builder = StateGraph(DevelopmentState)
 
-    builder.add_node(
-        "developer",
-        build_developer_node(
-            repository_root,
-            generate_text
-        )
-    )
+    builder.add_node("developer", build_developer_node(repository_root, generate_text))
 
     builder.add_node(
         "reviewer",
@@ -93,12 +84,7 @@ def build_development_graph(
 
     builder.add_edge(START, "developer")
     builder.add_conditional_edges(
-        "developer",
-        route_after_developer,
-        {
-            "reviewer": "reviewer",
-            "failed": "failed"
-        }
+        "developer", route_after_developer, {"reviewer": "reviewer", "failed": "failed"}
     )
 
     builder.add_conditional_edges(

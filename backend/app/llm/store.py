@@ -1,15 +1,15 @@
 import sqlite3
 from pathlib import Path
 
-from app.llm.models import LLMSelection
 from app.core import get_settings
+from app.llm.models import LLMSelection
 
 
 class LLMSelectionStore:
-
     def __init__(self, db_path: Path | str | None = None):
-        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
-
+        self.db_path = Path(
+            db_path if db_path is not None else get_settings().database_path
+        )
 
     def initialize(self) -> None:
         self.db_path.parent.mkdir(
@@ -44,10 +44,7 @@ class LLMSelectionStore:
         if row is None:
             return fallback
 
-        return LLMSelection(
-            provider=row[0],
-            model=row[1]
-        )
+        return LLMSelection(provider=row[0], model=row[1])
 
     def save(self, selection: LLMSelection) -> None:
         self.initialize()

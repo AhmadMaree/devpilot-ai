@@ -25,10 +25,7 @@ class InvestigationStore:
                     f"Database path is a non-empty directory: {self.db_path}"
                 ) from exc
 
-        connection = sqlite3.connect(
-            str(self.db_path),
-            timeout=10
-        )
+        connection = sqlite3.connect(str(self.db_path), timeout=10)
 
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout = 10000")
@@ -57,11 +54,8 @@ class InvestigationStore:
                 ON investigations(created_at DESC)
             """)
 
-    def save(
-        self,
-        result: InvestigationResponse
-    ) -> dict:
-        
+    def save(self, result: InvestigationResponse) -> dict:
+
         investigation_id = str(uuid4())
         created_at = datetime.now(UTC).isoformat()
 
@@ -84,14 +78,14 @@ class InvestigationStore:
                     result.question,
                     int(result.review_passed),
                     created_at,
-                    result.model_dump_json()
-                )
+                    result.model_dump_json(),
+                ),
             )
 
         return {
             "id": investigation_id,
             "created_at": created_at,
-            "result": result.model_dump(mode="json")
+            "result": result.model_dump(mode="json"),
         }
 
     def list_recent(
@@ -105,20 +99,12 @@ class InvestigationStore:
                 ORDER BY created_at DESC, rowid DESC
                 LIMIT ?
                 """,
-                (
-                    limit,
-                )
+                (limit,),
             ).fetchall()
 
-            return [
-                dict(row)
-                for row in rows
-            ]
+            return [dict(row) for row in rows]
 
-    def get_investigation(
-        self,
-        investigation_id: str
-    ) -> dict | None:
+    def get_investigation(self, investigation_id: str) -> dict | None:
         with self._connect() as connection:
             row = connection.execute(
                 """
@@ -140,9 +126,3 @@ class InvestigationStore:
 
     def get(self, investigation_id: str) -> dict | None:
         return self.get_investigation(investigation_id)
-
-
-
-
-
-        

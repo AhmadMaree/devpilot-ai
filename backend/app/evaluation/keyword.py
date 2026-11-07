@@ -1,7 +1,8 @@
+import math
+from collections import Counter
+
 from app.retrieval.local_index import IndexChunks
 from app.utils import tokenizer
-from collections import Counter
-import math
 
 
 class BM25Retriever:

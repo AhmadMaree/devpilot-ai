@@ -4,6 +4,10 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core import get_settings
+from app.repositories.github_import import (
+    GitHubImportError,
+    import_public_github_repository,
+)
 from app.repositories.index_job_manager import RepositoryIndexJobManager
 from app.repositories.index_jobs import (
     DuplicateIndexJobError,
@@ -15,24 +19,21 @@ from app.repositories.index_store import (
     RepositoryIndexStore,
 )
 from app.repositories.models import (
+    ImportGitHubRepositoryRequest,
     RegisterRepositoryRequest,
     Repository,
-    ImportGitHubRepositoryRequest
 )
 from app.repositories.store import RepositoryStore
 from app.repositories.validation import (
     InvalidRepositoryError,
     validate_repository_path,
 )
-from app.repositories.github_import import (
-    GitHubImportError,
-    import_public_github_repository
-)
 
 router = APIRouter(
     prefix="/api/v1/repositories",
     tags=["Repositories"],
 )
+
 
 def require_local_environment() -> None:
     settings = get_settings()
@@ -53,15 +54,16 @@ def get_repository_store() -> RepositoryStore:
 def get_index_job_manager(request: Request) -> RepositoryIndexJobManager:
     return request.app.state.index_job_manager
 
+
 @router.post(
     "",
     response_model=Repository,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_local_environment)]
+    dependencies=[Depends(require_local_environment)],
 )
 def register_repository(
     request: RegisterRepositoryRequest,
-    store: RepositoryStore = Depends(get_repository_store)
+    store: RepositoryStore = Depends(get_repository_store),
 ) -> Repository:
     try:
         repository_path = validate_repository_path(request.path)
@@ -82,6 +84,7 @@ def register_repository(
             detail="This repository is already registered",
         ) from None
 
+
 @router.get(
     "",
     response_model=list[Repository],
@@ -98,7 +101,6 @@ def list_repositories(
     response_model=Repository,
     dependencies=[Depends(require_local_environment)],
 )
-
 def get_repository(
     repository_id: UUID,
     store: RepositoryStore = Depends(get_repository_store),
@@ -111,6 +113,7 @@ def get_repository(
         )
 
     return repository
+
 
 @router.delete(
     "/{repository_id}",
@@ -160,6 +163,7 @@ def index_registered_repository(
             detail="Repository indexing queue is full",
         ) from None
 
+
 @router.get(
     "/{repository_id}/index/status",
     response_model=IndexingJob,
@@ -184,6 +188,7 @@ def get_repository_index_status(
         )
     return job
 
+
 @router.get(
     "/{repository_id}/index",
     response_model=RepositoryIndexMetadata,
@@ -207,29 +212,23 @@ def get_repository_index_metadata(
         )
     return metadata
 
+
 @router.post(
     "/import/github",
     response_model=Repository,
-    status_code= status.HTTP_201_CREATED,
-    dependencies=[Depends(require_local_environment)]
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_local_environment)],
 )
 def import_github_repository(
     request: ImportGitHubRepositoryRequest,
-    store: RepositoryStore = Depends(get_repository_store)
+    store: RepositoryStore = Depends(get_repository_store),
 ) -> Repository:
     try:
-        return import_public_github_repository(
-            url=request.url,
-            store=store
-        )
+        return import_public_github_repository(url=request.url, store=store)
     except GitHubImportError as exc:
-        raise HTTPException(
-            status_code=422,
-            detail= str(exc)
-        ) from exc
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except sqlite3.IntegrityError:
         raise HTTPException(
             status_code=409,
             detail="Repository is already registered",
         ) from None
-    

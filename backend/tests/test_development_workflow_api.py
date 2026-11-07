@@ -1,4 +1,3 @@
-
 from hashlib import sha256
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -74,9 +73,7 @@ def workflow_api(tmp_path, monkeypatch):
     )
 
     app.dependency_overrides[get_patch_store] = lambda: patch_store
-    app.dependency_overrides[
-        development.get_workflow_store
-    ] = lambda: history_store
+    app.dependency_overrides[development.get_workflow_store] = lambda: history_store
 
     # The test intentionally does not start the indexing
     # worker in the application's lifespan.
@@ -102,9 +99,7 @@ def request_body(repository_id):
 
 
 def make_proposal(repository_id, repository_root):
-    source = (
-        Path(repository_root) / "example.py"
-    ).read_bytes()
+    source = (Path(repository_root) / "example.py").read_bytes()
 
     return PatchProposal(
         repository_id=str(repository_id),
@@ -178,23 +173,17 @@ def test_success_creates_proposal_and_history(
     assert result["proposal_id"] is not None
     assert result["diff"]
 
-    proposal_saved = workflow_api["patch_store"].get(
-        result["proposal_id"]
-    )
+    proposal_saved = workflow_api["patch_store"].get(result["proposal_id"])
 
     assert proposal_saved is not None
     assert proposal_saved["status"] == "pending"
 
-    history = workflow_api[
-        "history_store"
-    ].list_by_repository(repository_id)
+    history = workflow_api["history_store"].list_by_repository(repository_id)
 
     assert len(history) == 1
     assert history[0]["proposal_id"] == result["proposal_id"]
 
-    detail = client.get(
-        f"/api/v1/development/workflows/{history[0]['id']}"
-    )
+    detail = client.get(f"/api/v1/development/workflows/{history[0]['id']}")
 
     assert detail.status_code == 200
     assert detail.json()["response"]["qa_passed"] is True
@@ -261,20 +250,14 @@ def test_timeout_is_persisted(
 
     assert response.status_code == 504
 
-    history = workflow_api[
-        "history_store"
-    ].list_by_repository(repository_id)
+    history = workflow_api["history_store"].list_by_repository(repository_id)
 
     assert len(history) == 1
     assert history[0]["status"] == "failed"
 
-    saved = workflow_api["history_store"].get(
-        UUID(history[0]["id"])
-    )
+    saved = workflow_api["history_store"].get(UUID(history[0]["id"]))
 
-    assert saved["response"]["error"] == (
-        "Development workflow timed out"
-    )
+    assert saved["response"]["error"] == ("Development workflow timed out")
 
 
 def test_repository_history_is_isolated(workflow_api):

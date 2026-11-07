@@ -1,24 +1,22 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.security import require_api_key
 
+from app.api.auth import router as auth_router
 from app.api.repositories import router as repositories_router
+from app.auth.sessions import initialize_auth_tables
+from app.core.security import require_api_key
 from app.repositories.index_job_manager import RepositoryIndexJobManager
 
 from .api.agents import router as agent_router
+from .api.development import router as development_router
 from .api.ingestion import router as ingestion_router
 from .api.llm import router as llm_router
 from .api.patches import router as patches_router
 from .api.questions import router as questions_router
-from .api.development import router as development_router
-from app.api.auth import router as auth_router
 from .api.routes import router
 from .core import get_settings
-from app.auth.sessions import initialize_auth_tables
-
-
 
 
 def create_app() -> FastAPI:
@@ -50,11 +48,11 @@ def create_app() -> FastAPI:
         allow_credentials=False,
     )
 
-    #Public route
+    # Public route
     app.include_router(router)
     app.include_router(auth_router)
 
-    #Protected route
+    # Protected route
     protected = [Depends(require_api_key)]
 
     app.include_router(ingestion_router, dependencies=protected)

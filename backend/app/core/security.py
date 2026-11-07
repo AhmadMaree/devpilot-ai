@@ -1,20 +1,15 @@
 from hmac import compare_digest
 
-from fastapi import Security, HTTPException, status, Request
+from fastapi import HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
 from app.auth.sessions import get_session
 from app.core import get_settings
 
-
 SESSION_COOKIE = "devpilot_session"
-api_key_header = APIKeyHeader(
-    name = "X-API-Key",
-    auto_error=False
-)
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
-
 
 
 def same_origin_required(request: Request) -> None:
@@ -42,9 +37,9 @@ def same_origin_required(request: Request) -> None:
             detail="Cross-site request rejected",
         )
 
+
 def require_api_key(
-    request: Request,
-    api_key: str | None = Security(api_key_header)
+    request: Request, api_key: str | None = Security(api_key_header)
 ) -> None:
     settings = get_settings()
     expected_key = settings.local_api_key.get_secret_value()
@@ -61,7 +56,6 @@ def require_api_key(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
         )
-
 
     # Browser session authentication.
     session_token = request.cookies.get(SESSION_COOKIE)
@@ -92,6 +86,3 @@ def require_api_key(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication required",
     )
-
-
-    

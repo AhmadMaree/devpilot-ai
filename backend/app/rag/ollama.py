@@ -1,7 +1,9 @@
 import httpx
 
-from .prompts import SYS_PROMPT
 from app.core import get_settings
+
+from .prompts import SYS_PROMPT
+
 
 class OllamaChatProvider:
     def __init__(
@@ -9,9 +11,7 @@ class OllamaChatProvider:
         base_url: str | None = None,
         model: str = "qwen3:4b",
     ):
-        self.base_url = (
-            base_url or get_settings().ollama_base_url
-        ).rstrip("/")
+        self.base_url = (base_url or get_settings().ollama_base_url).rstrip("/")
         self.model = model
 
     def generate(self, prompt: str) -> str:
@@ -25,7 +25,6 @@ class OllamaChatProvider:
                 "messages": [
                     {"role": "system", "content": SYS_PROMPT},
                     {"role": "user", "content": prompt},
-                    
                 ],
                 "options": {
                     "temperature": 0,
@@ -40,29 +39,21 @@ class OllamaChatProvider:
         data = response.json()
 
         if data.get("done") is not True:
-            raise ValueError(
-                "Ollama did not complete the response"
-            )
+            raise ValueError("Ollama did not complete the response")
 
         done_reason = data.get("done_reason")
 
         if done_reason in {"length", "max_tokens"}:
-            raise ValueError(
-                "Ollama response reached the token limit"
-            )
-        
+            raise ValueError("Ollama response reached the token limit")
+
         if done_reason not in {None, "stop"}:
-            raise ValueError(
-                f"Unexpected Ollama completion reason: {done_reason}"
-            )
+            raise ValueError(f"Unexpected Ollama completion reason: {done_reason}")
 
         message = data.get("message")
 
         if not isinstance(message, dict):
-            raise ValueError(
-                "Ollama returned an invalid message"
-            )
-        
+            raise TypeError("Ollama returned an invalid message")
+
         content = data["message"]["content"]
         if not isinstance(content, str) or not content.strip():
             raise ValueError("Ollama returned an empty answer")

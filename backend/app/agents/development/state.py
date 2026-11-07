@@ -1,5 +1,7 @@
-from app.patches.models import PatchProposal
 from typing import TypedDict
+
+from app.patches.models import PatchProposal
+
 
 class DevelopmentState(TypedDict):
     repository_id: str

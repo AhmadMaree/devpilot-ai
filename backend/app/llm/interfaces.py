@@ -1,9 +1,9 @@
-from typing import Protocol, runtime_checkable, Any
+from typing import Any, Protocol, runtime_checkable
+
 
 @runtime_checkable
 class TextLLM(Protocol):
-    def generate(self, prompt: str) -> str:
-        ...
+    def generate(self, prompt: str) -> str: ...
 
 
 @runtime_checkable
@@ -12,5 +12,4 @@ class StructuredLLM(Protocol):
         self,
         prompt: str,
         schema: dict[str, Any],
-    ) -> dict[str, Any]:
-        ...
+    ) -> dict[str, Any]: ...

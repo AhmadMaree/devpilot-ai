@@ -1,7 +1,8 @@
 import hashlib
-import tempfile
 import os
+import tempfile
 from pathlib import Path
+
 from .models import PatchProposal, PatchResult
 
 

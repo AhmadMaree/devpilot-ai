@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import UUID
-from app.core import get_settings
 
+from app.core import get_settings
 
 
 def get_repository_index_path(

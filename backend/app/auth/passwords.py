@@ -1,4 +1,3 @@
-
 import hashlib
 import hmac
 import secrets
@@ -14,7 +13,7 @@ def hash_password(password: str) -> str:
         raise ValueError("Password must be at least 12 characters")
 
     salt = secrets.token_bytes(16)
-    derived_key= hashlib.scrypt(
+    derived_key = hashlib.scrypt(
         password.encode("utf-8"),
         salt=salt,
         n=SCRYPT_N,
@@ -27,7 +26,7 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    
+
     try:
         algorithm, n, r, p, salt_hex, key_hex = stored_hash.split("$")
 

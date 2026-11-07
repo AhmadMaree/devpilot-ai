@@ -1,7 +1,8 @@
 import httpx
 
-from app.patches.generation import GeneratedPatch
 from app.core import get_settings
+from app.patches.generation import GeneratedPatch
+
 
 class OllamaPatchProvider:
     def __init__(
@@ -10,7 +11,7 @@ class OllamaPatchProvider:
         base_url: str | None = None,
     ):
         self.model = model
-        self.base_url =  self.base_url = (
+        self.base_url = self.base_url = (
             base_url or get_settings().ollama_base_url
         ).rstrip("/")
 
@@ -42,15 +43,11 @@ class OllamaPatchProvider:
         data = response.json()
 
         if data.get("done_reason") == "length":
-            raise ValueError(
-                "Ollama truncated the generated patch"
-            )
+            raise ValueError("Ollama truncated the generated patch")
 
         content = data.get("message", {}).get("content", "")
 
         if not isinstance(content, str) or not content.strip():
-            raise ValueError(
-                "Ollama returned an empty patch response"
-            )
+            raise ValueError("Ollama returned an empty patch response")
 
         return content

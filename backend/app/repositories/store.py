@@ -4,16 +4,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from .models import Repository
 from app.core import get_settings
+
+from .models import Repository
 
 
 class RepositoryStore:
-
-    def __init__(
-        self,
-        db_path: Path | str | None = None
-    ):
+    def __init__(self, db_path: Path | str | None = None):
         self.db_path = Path(
             db_path if db_path is not None else get_settings().database_path
         )
@@ -76,16 +73,14 @@ class RepositoryStore:
                 """
             ).fetchall()
 
-        return [
-            Repository.model_validate(dict(row))
-            for row in rows
-        ]
+        return [Repository.model_validate(dict(row)) for row in rows]
 
     def get(self, repository_id: UUID) -> Repository | None:
         self.initialize()
 
         with closing(self._connect()) as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT id,name,path,created_at
                 FROM repositories
                 WHERE id=?

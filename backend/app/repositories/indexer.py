@@ -1,4 +1,3 @@
-
 import os
 import tempfile
 from collections.abc import Callable
@@ -43,9 +42,7 @@ def index_repository(
     repository = repository_store.get(repository_id)
 
     if repository is None:
-        raise RepositoryNotFoundError(
-            "Repository not found"
-        )
+        raise RepositoryNotFoundError("Repository not found")
 
     # Existing ingestion validates the repository and
     # rejects uncommitted changes.
@@ -77,11 +74,9 @@ def index_repository(
 
     for start in range(0, len(chunks), batch_size):
         check_cancelled()
-        batch = chunks[start:start + batch_size]
+        batch = chunks[start : start + batch_size]
 
-        vectors = embeddings.embed_texts(
-            [chunk.content for chunk in batch]
-        )
+        vectors = embeddings.embed_texts([chunk.content for chunk in batch])
 
         index.add(batch, vectors)
 

@@ -1,10 +1,11 @@
 import re
-from typing import TypedDict, Protocol
-from langgraph.graph import START, END, StateGraph
+from typing import Protocol, TypedDict
 
-from app.retrieval.local_index import SearchResult
+from langgraph.graph import END, START, StateGraph
+
 from app.chunking.models import SourceChunk
 from app.rag.prompts import build_user_propmt
+from app.retrieval.local_index import SearchResult
 
 
 class Retriever(Protocol):

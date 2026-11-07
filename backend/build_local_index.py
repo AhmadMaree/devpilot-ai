@@ -1,8 +1,9 @@
 from pathlib import Path
-from app.core import get_settings
-from app.ingestion.service import ingest_repository
+
 from app.chunking.services import chunk_documents
+from app.core import get_settings
 from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.ingestion.service import ingest_repository
 from app.retrieval.local_index import LocalVectorIndex
 
 

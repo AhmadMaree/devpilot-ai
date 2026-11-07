@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 from .graph import build_development_graph
 from .state import DevelopmentState

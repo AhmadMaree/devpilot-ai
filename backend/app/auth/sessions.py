@@ -1,4 +1,3 @@
-
 import hashlib
 import secrets
 import sqlite3
@@ -55,18 +54,14 @@ def initialize_auth_tables() -> None:
 
 
 def token_hash(token: str) -> str:
-    return hashlib.sha256(
-        token.encode("utf-8")
-    ).hexdigest()
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def create_session() -> tuple[str, Session]:
     token = secrets.token_urlsafe(48)
     csrf_token = secrets.token_urlsafe(32)
 
-    expires_at = int(time.time()) + (
-        get_settings().auth_session_hours * 3600
-    )
+    expires_at = int(time.time()) + (get_settings().auth_session_hours * 3600)
 
     with connect() as connection:
         connection.execute(
@@ -182,11 +177,7 @@ def record_login_failure(bucket: str) -> None:
             attempts = row[0] + 1
             window_start = row[1]
 
-        blocked_until = (
-            now + BLOCK_SECONDS
-            if attempts >= MAX_FAILURES
-            else 0
-        )
+        blocked_until = now + BLOCK_SECONDS if attempts >= MAX_FAILURES else 0
 
         connection.execute(
             """

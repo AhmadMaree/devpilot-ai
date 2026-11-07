@@ -24,7 +24,7 @@ def build_developer_node(
             )
 
             proposal = generate_patch(
-                repository_root= repository_root,
+                repository_root=repository_root,
                 request=request,
                 generate_text=generate_text,
             )
@@ -41,7 +41,6 @@ def build_developer_node(
                 "developer_status": "failed",
                 "developer_feedback": str(exc),
                 "error": str(exc),
-
             }
 
     return developer

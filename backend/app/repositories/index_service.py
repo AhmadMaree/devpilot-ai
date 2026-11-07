@@ -1,4 +1,3 @@
-
 from uuid import UUID
 
 from app.repositories.index_paths import get_repository_index_path
@@ -26,12 +25,7 @@ def load_repository_index(repository_id: UUID) -> LocalVectorIndex:
 
     # Fail closed if the stored index contains another
     # repository's source chunks.
-    if any(
-        item.chunk.repository_id != str(repository_id)
-        for item in index.items
-    ):
-        raise ValueError(
-            "Index contains chunks from another repository"
-        )
+    if any(item.chunk.repository_id != str(repository_id) for item in index.items):
+        raise ValueError("Index contains chunks from another repository")
 
     return index

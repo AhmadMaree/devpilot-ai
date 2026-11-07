@@ -1,4 +1,3 @@
-
 import logging
 from pathlib import Path
 from uuid import UUID
@@ -17,7 +16,6 @@ from app.patches.store import PatchProposalStore
 from app.repositories.resolver import resolve_registered_repository
 from app.repositories.store import RepositoryStore
 from app.storage.development_workflows import DevelopmentWorkflowStore
-
 
 logger = logging.getLogger(__name__)
 
@@ -103,9 +101,7 @@ def failed_response(message: str) -> DevelopmentWorkflowResponse:
 def create_development_workflow(
     request: DevelopmentWorkflowRequest,
     store: PatchProposalStore = Depends(get_patch_store),
-    history_store: DevelopmentWorkflowStore = Depends(
-        get_workflow_store
-    ),
+    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 
@@ -117,13 +113,9 @@ def create_development_workflow(
     repository_root = Path(repository.path).resolve()
 
     try:
-        selection = LLMSelectionStore().get(
-            fallback=get_settings().llm_selection
-        )
+        selection = LLMSelectionStore().get(fallback=get_settings().llm_selection)
 
-        provider = LLMProviderFactory(
-            selection
-        ).create_patch_provider()
+        provider = LLMProviderFactory(selection).create_patch_provider()
 
         result = run_development_workflow(
             repository_id=str(request.repository_id),
@@ -255,9 +247,7 @@ def list_development_workflows(
     repository_id: UUID,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    history_store: DevelopmentWorkflowStore = Depends(
-        get_workflow_store
-    ),
+    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 
@@ -279,9 +269,7 @@ def list_development_workflows(
 )
 def get_development_workflow(
     workflow_id: UUID,
-    history_store: DevelopmentWorkflowStore = Depends(
-        get_workflow_store
-    ),
+    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 

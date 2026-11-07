@@ -1,4 +1,3 @@
-
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -7,8 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
-from app.repositories.index_jobs import IndexJobStateChangedError
 from app.core import get_settings
+from app.repositories.index_jobs import IndexJobStateChangedError
 
 
 class RepositoryIndexMetadata(BaseModel):
@@ -20,7 +19,9 @@ class RepositoryIndexMetadata(BaseModel):
 
 class RepositoryIndexStore:
     def __init__(self, db_path: Path | str | None = None):
-        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
+        self.db_path = Path(
+            db_path if db_path is not None else get_settings().database_path
+        )
 
     def _connect(self):
         self.db_path.parent.mkdir(
@@ -51,14 +52,11 @@ class RepositoryIndexStore:
             )
             columns = {
                 row["name"]
-                for row in conn.execute(
-                    "PRAGMA table_info(repository_indexes)"
-                )
+                for row in conn.execute("PRAGMA table_info(repository_indexes)")
             }
             if "index_version" not in columns:
                 conn.execute(
-                    "ALTER TABLE repository_indexes "
-                    "ADD COLUMN index_version TEXT"
+                    "ALTER TABLE repository_indexes ADD COLUMN index_version TEXT"
                 )
 
     def save(
@@ -134,9 +132,7 @@ class RepositoryIndexStore:
                 ),
             )
             if pointer_cursor.rowcount != 1:
-                raise sqlite3.IntegrityError(
-                    "Active repository index was not updated"
-                )
+                raise sqlite3.IntegrityError("Active repository index was not updated")
             cursor = conn.execute(
                 """
                 UPDATE repository_index_jobs
@@ -159,9 +155,7 @@ class RepositoryIndexStore:
                 ),
             )
             if cursor.rowcount != 1:
-                raise IndexJobStateChangedError(
-                    "Indexing job is no longer running"
-                )
+                raise IndexJobStateChangedError("Indexing job is no longer running")
 
         return metadata
 

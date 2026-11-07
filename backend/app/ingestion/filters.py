@@ -33,7 +33,6 @@ IGNORED_DIR = {
 IGNORED_FILENAMES = {
     ".env",
     ".env.local",
-    ".env.local",
     ".env.production",
     ".env.development",
     "package-lock.json",

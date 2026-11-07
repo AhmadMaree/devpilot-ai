@@ -1,4 +1,3 @@
-
 from fastapi import (
     APIRouter,
     Depends,
@@ -14,7 +13,6 @@ from app.auth.sessions import (
     clear_login_failures,
     create_session,
     get_session,
-    initialize_auth_tables,
     login_allowed,
     record_login_failure,
     revoke_session,
@@ -24,7 +22,6 @@ from app.core.security import (
     SESSION_COOKIE,
     same_origin_required,
 )
-
 
 router = APIRouter(
     prefix="/api/v1/auth",

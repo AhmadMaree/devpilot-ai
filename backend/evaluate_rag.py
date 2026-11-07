@@ -1,9 +1,9 @@
 from pathlib import Path
 
-from app.retrieval.local_index import LocalVectorIndex
-from app.evaluation.models import EvaluationDataset, EvaluationReport
 from app.embeddings.ollama import OllamaEmbeddingProvider
-from app.evaluation.runner import evaluate_method, semantic_retriever, keyword_retriever
+from app.evaluation.models import EvaluationDataset, EvaluationReport
+from app.evaluation.runner import evaluate_method, keyword_retriever, semantic_retriever
+from app.retrieval.local_index import LocalVectorIndex
 
 BASE_DIR = Path(__file__).resolve().parent
 TOP_K = 5

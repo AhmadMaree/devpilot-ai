@@ -1,6 +1,5 @@
-from app.retrieval.local_index import LocalVectorIndex
 from app.embeddings.ollama import OllamaEmbeddingProvider
-from app.retrieval.local_index import SearchResult
+from app.retrieval.local_index import LocalVectorIndex, SearchResult
 
 
 class RepositoryRetriever:

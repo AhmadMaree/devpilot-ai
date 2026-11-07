@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field
-from uuid import UUID
 from datetime import datetime
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class InvestigationRequest(BaseModel):
     repository_id: str = Field(min_length=1, max_length=100)
     question: str = Field(min_length=3, max_length=2000)
+
 
 class InvestigationSource(BaseModel):
     source_id: str
@@ -28,11 +30,11 @@ class InvestigationResponse(BaseModel):
     sources: list[InvestigationSource]
 
 
-
 class SavedInvestigation(BaseModel):
     id: UUID
     created_at: datetime
     result: InvestigationResponse
+
 
 class InvestigationSummary(BaseModel):
     id: UUID

@@ -1,4 +1,3 @@
-
 from functools import lru_cache
 from uuid import UUID
 
@@ -39,9 +38,7 @@ def get_rag_services(
     return RAGServices(
         index=load_repository_index(repository_id),
         embeddings=OllamaEmbeddingProvider(),
-        chat=LLMProviderFactory(
-            selection
-        ).create_text_provider(),
+        chat=LLMProviderFactory(selection).create_text_provider(),
     )
 
 
@@ -65,9 +62,7 @@ def ask_question(
         RepositoryStore(),
     )
 
-    selection = LLMSelectionStore().get(
-        fallback=settings.llm_selection
-    )
+    selection = LLMSelectionStore().get(fallback=settings.llm_selection)
 
     try:
         # File modification time invalidates the cached
@@ -75,9 +70,7 @@ def ask_question(
         index_metadata = RepositoryIndexStore().get(repository.id)
         index_path = get_repository_index_path(
             repository.id,
-            index_metadata.index_version
-            if index_metadata is not None
-            else None,
+            index_metadata.index_version if index_metadata is not None else None,
         )
 
         if not index_path.is_file():

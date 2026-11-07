@@ -24,4 +24,3 @@ def get_head_commit(repository_root: Path) -> str:
         raise ValueError("Git returned an invalid commit SHA")
 
     return commit_sha.lower()
-     

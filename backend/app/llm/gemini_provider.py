@@ -1,4 +1,3 @@
-import json
 from typing import Any
 
 from google import genai
@@ -20,21 +19,18 @@ class GeminiProvider:
         if client is not None:
             self.client = client
             return
-        
-        key = settings.gemini_api_key if api_key is None  else api_key
+
+        key = settings.gemini_api_key if api_key is None else api_key
         if not key:
             raise ValueError("GEMINI_API_KEY is not configured")
-        
+
         self.client = genai.Client(api_key=key)
 
     def generate(self, prompt: str) -> str:
         response = self.client.models.generate_content(
             model=self.model,
             contents=prompt,
-            config= types.GenerateContentConfig(
-                temperature=0,
-                max_output_tokens=2048
-            )
+            config=types.GenerateContentConfig(temperature=0, max_output_tokens=2048),
         )
 
         if not response.text or not response.text.strip():
@@ -67,6 +63,7 @@ class GeminiProvider:
 
         return schema.model_validate_json(response.text)
 
+
 class GeminiPatchProvider(GeminiProvider):
     def generate(self, prompt: str) -> str:
         result = self.generate_structured(
@@ -75,4 +72,3 @@ class GeminiPatchProvider(GeminiProvider):
         )
 
         return result.model_dump_json()
-        

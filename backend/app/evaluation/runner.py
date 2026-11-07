@@ -1,11 +1,9 @@
 from time import perf_counter
 
-from app.evaluation.models import EvaluationCase
-from app.evaluation.models import RetrievalSummary, CaseResult
-from app.evaluation.metrics import recall_at_k, reciprocal_rank, mean
-
-from app.retrieval.local_index import LocalVectorIndex
 from app.evaluation.keyword import BM25Retriever
+from app.evaluation.metrics import mean, recall_at_k, reciprocal_rank
+from app.evaluation.models import CaseResult, EvaluationCase, RetrievalSummary
+from app.retrieval.local_index import LocalVectorIndex
 
 
 def unique_paths(paths: list[str]) -> list[str]:

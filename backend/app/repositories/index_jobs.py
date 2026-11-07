@@ -225,9 +225,7 @@ class IndexJobStore:
                 (phase, processed_chunks, total_chunks, str(job_id)),
             )
             if cursor.rowcount != 1:
-                raise IndexJobStateChangedError(
-                    "Indexing job is no longer running"
-                )
+                raise IndexJobStateChangedError("Indexing job is no longer running")
 
     def complete(self, job_id: UUID, total_chunks: int) -> bool:
         with closing(self._connect()) as conn, conn:

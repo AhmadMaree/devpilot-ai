@@ -1,6 +1,5 @@
 from app.retrieval.local_index import SearchResult
 
-
 SYS_PROMPT = """
 You are DevPilot AI, a source-code investigation assistant.
 

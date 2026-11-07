@@ -1,8 +1,8 @@
 import hashlib
-
 from pathlib import Path
-from .models import SourceDocument
+
 from .filters import get_language
+from .models import SourceDocument
 
 
 def read_source_file(

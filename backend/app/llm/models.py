@@ -1,10 +1,11 @@
 from enum import Enum
+
 from pydantic import BaseModel, Field
 
 
 class LLMProviderType(str, Enum):
     OLLAMA = "ollama"
-    OPENAI= "openai"
+    OPENAI = "openai"
     ANTHROPIC = "anthropic"
     GEMINI = "gemini"
 

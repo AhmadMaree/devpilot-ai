@@ -1,10 +1,10 @@
 from pathlib import Path
+
 from app.agents.graph import build_investigation_graph
 from app.agents.retriever import RepositoryRetriever
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.rag.ollama import OllamaChatProvider
 from app.retrieval.local_index import LocalVectorIndex
-
 
 BASE_DIR = Path(__file__).resolve().parent
 

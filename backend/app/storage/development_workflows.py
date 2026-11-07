@@ -1,5 +1,3 @@
-
-
 import json
 import sqlite3
 from contextlib import closing
@@ -16,9 +14,7 @@ class DevelopmentWorkflowStore:
         db_path: Path | str | None = None,
     ):
         self.db_path = Path(
-            db_path
-            if db_path is not None
-            else get_settings().database_path
+            db_path if db_path is not None else get_settings().database_path
         )
 
     def _connect(self) -> sqlite3.Connection:
@@ -72,7 +68,7 @@ class DevelopmentWorkflowStore:
         proposal_id: UUID | None = None,
     ) -> dict:
         self.initialize()
-        
+
         workflow_id = str(uuid4())
         created_at = datetime.now(UTC).isoformat()
 
@@ -109,9 +105,7 @@ class DevelopmentWorkflowStore:
             "file_path": file_path,
             "instruction": instruction,
             "status": status,
-            "proposal_id": (
-                str(proposal_id) if proposal_id else None
-            ),
+            "proposal_id": (str(proposal_id) if proposal_id else None),
             "created_at": created_at,
             "response": response,
         }
@@ -167,8 +161,6 @@ class DevelopmentWorkflowStore:
             return None
 
         result = dict(row)
-        result["response"] = json.loads(
-            result.pop("response_json")
-        )
+        result["response"] = json.loads(result.pop("response_json"))
 
         return result

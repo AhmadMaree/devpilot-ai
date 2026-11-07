@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
+from app.llm.gemini_provider import GeminiPatchProvider, GeminiProvider
 from app.llm.models import LLMProviderType, LLMSelection
-from app.rag.ollama import OllamaChatProvider
 from app.patches.ollama_provider import OllamaPatchProvider
-from app.llm.gemini_provider import GeminiProvider, GeminiPatchProvider
+from app.rag.ollama import OllamaChatProvider
 
 
 class ProviderNotConfiguredError(ValueError):
@@ -16,9 +16,7 @@ class LLMProviderFactory:
 
     def create_text_provider(self):
         if self.selection.provider.lower() == LLMProviderType.OLLAMA:
-            return OllamaChatProvider(
-                model=self.selection.model
-            )
+            return OllamaChatProvider(model=self.selection.model)
         if self.selection.provider == LLMProviderType.GEMINI:
             return GeminiProvider(model=self.selection.model)
 
@@ -29,14 +27,10 @@ class LLMProviderFactory:
 
     def create_patch_provider(self):
         if self.selection.provider == LLMProviderType.OLLAMA:
-            return OllamaPatchProvider(
-                model=self.selection.model
-            )
+            return OllamaPatchProvider(model=self.selection.model)
 
         if self.selection.provider == LLMProviderType.GEMINI:
-            return GeminiPatchProvider(
-                model=self.selection.model
-            )
+            return GeminiPatchProvider(model=self.selection.model)
 
         raise ProviderNotConfiguredError(
             f"Patch generation provider "

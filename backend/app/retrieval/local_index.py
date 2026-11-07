@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from pydantic import BaseModel
+
 from app.chunking.models import SourceChunk
 from app.utils import cosine_similarity
 

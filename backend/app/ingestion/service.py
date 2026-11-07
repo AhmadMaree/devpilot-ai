@@ -1,13 +1,11 @@
-import subprocess
 import os
-
+import subprocess
 from pathlib import Path
-from .models import IngestionResult
 
 from app.utils import ensure_clean_repositery
 
 from .filters import IGNORED_DIR, should_include_file
-
+from .models import IngestionResult
 from .reader import read_source_file
 
 

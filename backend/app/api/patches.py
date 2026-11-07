@@ -1,28 +1,20 @@
-from pathlib import Path
-from uuid import UUID
 import logging
-import httpx
-
-from pydantic import BaseModel
-from uuid import UUID
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Depends, Query
+from uuid import UUID
 
-from app.patches.store import PatchProposalStore, PatchProposal
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
 from app.core import get_settings
-from app.patches.preview import preview_patch
-from app.patches.service import apply_approved_patch
-
-from app.patches.generation import (
-    GeneratePatchRequest,
-    generate_patch
-)
-
-from app.repositories.store import RepositoryStore
-from app.repositories.resolver import resolve_registered_repository
-
 from app.llm.factory import LLMProviderFactory
 from app.llm.store import LLMSelectionStore
+from app.patches.generation import GeneratePatchRequest, generate_patch
+from app.patches.preview import preview_patch
+from app.patches.service import apply_approved_patch
+from app.patches.store import PatchProposal, PatchProposalStore
+from app.repositories.resolver import resolve_registered_repository
+from app.repositories.store import RepositoryStore
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +33,7 @@ class PatchActionResponse(BaseModel):
     status: str
     message: str
 
+
 class PatchProposalSummary(BaseModel):
     id: UUID
     repository_id: UUID
@@ -49,12 +42,14 @@ class PatchProposalSummary(BaseModel):
     status: str
     created_at: str
 
+
 def get_patch_store() -> PatchProposalStore:
     require_local_environment()
 
     store = PatchProposalStore()
     store.initialize()
     return store
+
 
 def require_local_environment() -> None:
     if get_settings().environment != "development":
@@ -63,57 +58,48 @@ def require_local_environment() -> None:
             detail="Patch API is disabled",
         )
 
+
 def get_repository_root(repository_id: str) -> Path:
     repository = resolve_registered_repository(
-        repository_id=repository_id,
-        store= RepositoryStore()
+        repository_id=repository_id, store=RepositoryStore()
     )
     return Path(repository.path).resolve()
 
-@router.post(
-    "/proposals",
-    response_model=PatchCreateResponse
-)
+
+@router.post("/proposals", response_model=PatchCreateResponse)
 def create_proposals(
-    request: PatchProposal,
-    store: PatchProposalStore = Depends(get_patch_store)
+    request: PatchProposal, store: PatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
     root = get_repository_root(request.repository_id)
 
     try:
         diff = preview_patch(root, request)
-    except(OSError, ValueError, UnicodeError) as err:
+    except (OSError, ValueError, UnicodeError) as err:
         raise HTTPException(400, str(err)) from None
 
     if not diff:
         raise HTTPException(400, "Patch contains no changes")
 
-    saved = store.create(request,diff=diff)
+    saved = store.create(request, diff=diff)
 
-    return PatchCreateResponse(
-        **saved,
-        diff=diff
-    )
+    return PatchCreateResponse(**saved, diff=diff)
 
-@router.get(
-    "/proposals",
-    response_model=list[PatchProposalSummary]
-)
+
+@router.get("/proposals", response_model=list[PatchProposalSummary])
 def list_proposals(
     repository_id: UUID,
     limit: int = Query(default=50, ge=1, le=100),
-    offset: int = Query(default=0 , ge=0),
-    store: PatchProposalStore = Depends(get_patch_store)
+    offset: int = Query(default=0, ge=0),
+    store: PatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
     get_repository_root(str(repository_id))
 
     return store.list_by_repository(
-        repository_id=str(repository_id),
-        limit=limit,
-        offset=offset
+        repository_id=str(repository_id), limit=limit, offset=offset
     )
+
 
 @router.get("/proposals/{proposal_id}")
 def get_proposal(
@@ -145,7 +131,7 @@ def reject_proposal(
     store: PatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
-    
+
     if store.get(str(proposal_id)) is None:
         raise HTTPException(404, "Patch proposal not found")
 
@@ -167,13 +153,10 @@ def reject_proposal(
         message="Proposal rejected; no files changed",
     )
 
-@router.post(
-    "/proposals/{proposal_id}/approve",
-    response_model=PatchActionResponse
-)
+
+@router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
 def approve_proposal(
-    proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store)
+    proposal_id: UUID, store: PatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
 
@@ -182,9 +165,7 @@ def approve_proposal(
     if not propsal:
         raise HTTPException(404, "proposal_id not found")
 
-    root = get_repository_root(
-        propsal["repository_id"]
-    )
+    root = get_repository_root(propsal["repository_id"])
 
     if not store.claim_for_apply(str(proposal_id)):
         raise HTTPException(
@@ -194,22 +175,20 @@ def approve_proposal(
 
     try:
         updatePoposal = PatchProposal(
-                repository_id=propsal["repository_id"],
-                file_path=propsal["file_path"],
-                expected_sha256=propsal["expected_sha256"],
-                replacement_content=propsal["replacement_content"],
-                explanation=propsal["explanation"],
-            )
-                
+            repository_id=propsal["repository_id"],
+            file_path=propsal["file_path"],
+            expected_sha256=propsal["expected_sha256"],
+            replacement_content=propsal["replacement_content"],
+            explanation=propsal["explanation"],
+        )
+
         res = apply_approved_patch(
-            repository_root=root,
-            proposal=updatePoposal,
-            approved=True
+            repository_root=root, proposal=updatePoposal, approved=True
         )
 
         if not res.applied:
             raise ValueError(res.message)
-        
+
     except (OSError, ValueError, UnicodeError) as err:
         store.set_status(
             str(proposal_id),
@@ -219,7 +198,7 @@ def approve_proposal(
         raise HTTPException(409, str(err)) from None
 
     changed = store.set_status(
-        proposal_id= str(proposal_id),
+        proposal_id=str(proposal_id),
         expected_status="applying",
         new_status="applied",
     )
@@ -232,7 +211,7 @@ def approve_proposal(
                 "could not be recorded. Manual inspection required."
             ),
         )
-    
+
     return PatchActionResponse(
         id=proposal_id,
         status="applied",
@@ -301,16 +280,14 @@ def get_proposal_preview(
 
     return response
 
+
 @router.post("/generate")
 def generate_patch_proposal(
-    request: GeneratePatchRequest,
-    store: PatchProposalStore = Depends(get_patch_store)
+    request: GeneratePatchRequest, store: PatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
 
-    selection = LLMSelectionStore().get(
-        fallback=get_settings().llm_selection
-    )
+    selection = LLMSelectionStore().get(fallback=get_settings().llm_selection)
 
     provider = LLMProviderFactory(selection).create_patch_provider()
 
@@ -323,13 +300,11 @@ def generate_patch_proposal(
 
         diff = preview_patch(
             repository_root=get_repository_root(request.repository_id),
-            proposal=proposal
+            proposal=proposal,
         )
 
         if not diff:
-            raise ValueError(
-                "Generated proposal contains no changes"
-            )
+            raise ValueError("Generated proposal contains no changes")
     except httpx.TimeoutException:
         raise HTTPException(
             status_code=504,
@@ -343,9 +318,7 @@ def generate_patch_proposal(
         ) from None
 
     except (OSError, ValueError, UnicodeError):
-        logger.exception(
-            "Developer Agent failed to generate a valid patch"
-        )
+        logger.exception("Developer Agent failed to generate a valid patch")
         raise HTTPException(
             status_code=422,
             detail="Developer Agent could not produce a valid patch",
@@ -355,4 +328,4 @@ def generate_patch_proposal(
     return {
         **saved,
         "diff": diff,
-    }  
+    }

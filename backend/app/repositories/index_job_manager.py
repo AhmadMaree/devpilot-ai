@@ -1,4 +1,5 @@
 import logging
+import sqlite3
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -8,6 +9,7 @@ from uuid import UUID
 
 import httpx
 
+from app.core import get_settings
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.repositories.index_jobs import (
     IndexingCancelledError,
@@ -23,7 +25,6 @@ from app.repositories.indexer import (
 )
 from app.repositories.store import RepositoryStore
 from app.utils.helper import RepositoryHasUncommittedChangesError
-from app.core import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,9 @@ class RepositoryIndexJobManager:
             OllamaEmbeddingProvider
         ),
     ):
-        self.db_path = Path(db_path if db_path is not None else get_settings().database_path)
+        self.db_path = Path(
+            db_path if db_path is not None else get_settings().database_path
+        )
         self.store = IndexJobStore(self.db_path)
         self.index_function = index_function
         self.embeddings_factory = embeddings_factory
@@ -98,7 +101,7 @@ class RepositoryIndexJobManager:
     def _run(self, job: IndexingJob, cancel_event: Event) -> None:
         try:
             is_running = self.store.mark_running(job.job_id)
-        except Exception:
+        except (OSError, sqlite3.Error):
             logger.error(
                 "Could not start repository indexing job %s",
                 job.job_id,
@@ -156,7 +159,8 @@ class RepositoryIndexJobManager:
                 job.job_id,
                 "Repository indexing could not be completed.",
             )
-        except Exception:  # Persist unexpected failures instead of leaving jobs running.
+        except Exception:  # noqa: BLE001
+            # A worker must persist unexpected failures rather than strand a job.
             logger.error(
                 "Repository indexing job %s failed with an unexpected error",
                 job.job_id,

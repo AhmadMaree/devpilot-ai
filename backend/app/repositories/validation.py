@@ -1,4 +1,3 @@
-
 import subprocess
 from pathlib import Path
 
@@ -16,9 +15,7 @@ def validate_repository_path(path: str) -> Path:
         ) from exc
 
     if not root.is_dir():
-        raise InvalidRepositoryError(
-            "Repository path must be a directory"
-        )
+        raise InvalidRepositoryError("Repository path must be a directory")
 
     try:
         result = subprocess.run(
@@ -35,25 +32,17 @@ def validate_repository_path(path: str) -> Path:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        raise InvalidRepositoryError(
-            "Unable to validate the Git repository"
-        ) from exc
+        raise InvalidRepositoryError("Unable to validate the Git repository") from exc
 
     if result.returncode != 0:
-        raise InvalidRepositoryError(
-            "Directory is not inside a Git repository"
-        )
+        raise InvalidRepositoryError("Directory is not inside a Git repository")
 
     try:
         git_root = Path(result.stdout.strip()).resolve(strict=True)
     except (OSError, RuntimeError) as exc:
-        raise InvalidRepositoryError(
-            "Git returned an invalid repository root"
-        ) from exc
+        raise InvalidRepositoryError("Git returned an invalid repository root") from exc
 
     if git_root != root:
-        raise InvalidRepositoryError(
-            "Select the Git repository root directory"
-        )
+        raise InvalidRepositoryError("Select the Git repository root directory")
 
     return root

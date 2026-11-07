@@ -1,4 +1,3 @@
-
 from pathlib import Path
 
 from app.agents.models import InvestigationResponse
@@ -31,9 +30,7 @@ def test_save_and_get_investigation(tmp_path: Path):
     loaded = store.get(saved["id"])
 
     assert loaded is not None
-    assert loaded["result"]["question"] == (
-        "Where is ingestion implemented?"
-    )
+    assert loaded["result"]["question"] == ("Where is ingestion implemented?")
 
 
 def test_history_survives_new_store_instance(tmp_path: Path):

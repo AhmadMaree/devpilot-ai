@@ -1,10 +1,11 @@
 import subprocess
 from pathlib import Path
-from fastapi import HTTPException, APIRouter
-from app.ingestion.models import IngestionResult
-from app.ingestion.service import ingest_repository
+
+from fastapi import APIRouter, HTTPException
 
 from app.core import get_settings
+from app.ingestion.models import IngestionResult
+from app.ingestion.service import ingest_repository
 
 router = APIRouter(prefix="/api/v1", tags=["Ingestion"])
 

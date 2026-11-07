@@ -1,4 +1,3 @@
-
 import logging
 from functools import lru_cache
 from uuid import UUID
@@ -54,9 +53,7 @@ def get_investigation_graph(
         model=model,
     )
 
-    analyst = LLMProviderFactory(
-        selection
-    ).create_text_provider()
+    analyst = LLMProviderFactory(selection).create_text_provider()
 
     return build_investigation_graph(
         retriever=retriever,
@@ -88,9 +85,7 @@ def investigate(
         RepositoryStore(),
     )
 
-    selection = LLMSelectionStore().get(
-        fallback=settings.llm_selection
-    )
+    selection = LLMSelectionStore().get(fallback=settings.llm_selection)
 
     index_metadata = RepositoryIndexStore().get(repository.id)
     index_path = get_repository_index_path(
