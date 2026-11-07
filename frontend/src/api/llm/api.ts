@@ -1,56 +1,50 @@
+import { apiClient } from "../client";
 import type {
-    LLMSelection,
-    LLMModelInfo,
-    LLMProviderInfo,
-    LLMProvider
-} from './types'
-import { apiUrl } from "../config";
+  LLMSelection,
+  LLMModelInfo,
+  LLMProviderInfo,
+  LLMProvider,
+} from "./types";
 
-const apiRequest = async <T> (
-    path: string,
-    init?: RequestInit,
-):Promise<T> => {
-    const response = await fetch(apiUrl(path), init);
-    if (!response.ok) {
-        let detail = `Request failed: ${response.status}`;
-
-        try {
-            const body: { detail?: string } = await response.json();
-            if (typeof body.detail === "string") {
-                detail = body.detail;
-            }
-        } catch {}
-
-        throw new Error(detail);
-    }
-
-    return (await response.json()) as T;
-}
-
-
-export const getLLMProviders = (): Promise<LLMProviderInfo[]> => {
-    return apiRequest("/api/v1/llm/providers");
-}
-
-export function getLLMModels(provider: LLMProvider = "ollama",): Promise<LLMModelInfo[]> {
-  return apiRequest(`/api/v1/llm/models?provider=${encodeURIComponent(provider)}`);
-}
-
-
-export function getLLMSelection(): Promise<LLMSelection> {
-  return apiRequest("/api/v1/llm/selection");
-}
-
-
-
-export function updateLLMSelection(
-  selection: LLMSelection,
-): Promise<LLMSelection> {
-  return apiRequest("/api/v1/llm/selection", {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(selection),
+export async function getLLMProviders(
+  signal?: AbortSignal,
+): Promise<LLMProviderInfo[]> {
+  const response = await apiClient.get<LLMProviderInfo[]>("/llm/providers", {
+    signal,
+    timeout: 60_000,
   });
+  return response.data;
+}
+
+export async function getLLMModels(
+  provider: LLMProvider = "ollama",
+  signal?: AbortSignal,
+): Promise<LLMModelInfo[]> {
+  const response = await apiClient.get<LLMModelInfo[]>("/llm/models", {
+    params: { provider },
+    signal,
+    timeout: 60_000,
+  });
+  return response.data;
+}
+
+export async function getLLMSelection(
+  signal?: AbortSignal,
+): Promise<LLMSelection> {
+  const response = await apiClient.get<LLMSelection>("/llm/selection", {
+    signal,
+  });
+  return response.data;
+}
+
+export async function updateLLMSelection(
+  selection: LLMSelection,
+  signal?: AbortSignal,
+): Promise<LLMSelection> {
+  const response = await apiClient.put<LLMSelection>(
+    "/llm/selection",
+    selection,
+    { signal },
+  );
+  return response.data;
 }

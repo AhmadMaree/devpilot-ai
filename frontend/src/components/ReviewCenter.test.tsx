@@ -217,13 +217,14 @@ describe("professional Review Center", () => {
 
     expect(await screen.findByRole("region", { name: "Unified patch diff" })).toBeVisible();
     const diffRegion = screen.getByRole("region", { name: "Unified patch diff" });
-    expect(diffRegion.querySelector(".diff-added")).toHaveTextContent(
+    expect(diffRegion.querySelector('[class*="diff-added"]')).toHaveTextContent(
       "+throw new Error('Authentication failed')",
     );
-    expect(diffRegion.querySelector(".diff-removed")).toHaveTextContent(
+    expect(diffRegion.querySelector('[class*="diff-removed"]')).toHaveTextContent(
       "-throw new Error('bad');",
     );
-    expect(screen.getByText("@@ -10,2 +10,3 @@").closest(".diff-hunk")).toBeInTheDocument();
+    expect(screen.getByText("@@ -10,2 +10,3 @@")
+      .closest('[class*="diff-hunk"]')).toBeInTheDocument();
   });
 
   it("shows workflow validation feedback and explains tests were not run", async () => {
@@ -375,7 +376,7 @@ describe("professional Review Center", () => {
     fireEvent.click(approveButton);
     fireEvent.click(approveButton);
 
-    expect(approvePatch).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(approvePatch).toHaveBeenCalledTimes(1));
     expect(screen.getByRole("button", { name: "Applying…" })).toBeDisabled();
     resolveApproval({ id: pendingDetails.id, status: "applied", message: "Applied." });
     await screen.findByText("Applied.");
@@ -400,7 +401,10 @@ describe("professional Review Center", () => {
     expect(screen.queryByRole("button", { name: "Approve and apply" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Reject" })).not.toBeInTheDocument();
     expect(screen.queryByText(/stale|file changed/i)).not.toBeInTheDocument();
-    expect(getPatchPreview).toHaveBeenCalledWith(workflowProposal.id);
+    expect(getPatchPreview).toHaveBeenCalledWith(
+      workflowProposal.id,
+      expect.any(AbortSignal),
+    );
 
     cleanup();
     vi.mocked(getPatchProposalDetails).mockResolvedValue(makeDetails("rejected"));

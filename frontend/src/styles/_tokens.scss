@@ -1,0 +1,74 @@
+:root {
+  --color-primary: #4f6ef7;
+  --color-primary-hover: #405bd4;
+  --color-primary-soft: #e8edff;
+  --color-background: #f5f7fb;
+  --color-surface: #fff;
+  --color-surface-subtle: #f7f8fc;
+  --color-surface-elevated: #fff;
+  --color-border: #e5e9f1;
+  --color-border-strong: #d7deea;
+  --color-text-primary: #172033;
+  --color-text-secondary: #6b778b;
+  --color-text-muted: #8490a2;
+  --color-sidebar: #111827;
+  --color-sidebar-surface: #1b2638;
+  --color-sidebar-border: #253044;
+  --color-sidebar-heading: #f8fafc;
+  --color-sidebar-brand: #526cf5;
+  --color-sidebar-text: #b7c2d2;
+  --color-sidebar-muted: #8d9bb0;
+  --color-sidebar-active: #263650;
+  --color-sidebar-active-border: #354668;
+  --color-sidebar-icon: #aebeff;
+  --color-code-text: #273449;
+  --color-diff-focus: #899af0;
+  --color-diff-gutter-border: rgb(40 55 75 / 8%);
+  --color-diff-line-number: #98a2b1;
+  --color-success-strong: #145c31;
+  --color-error-strong: #8e2824;
+  --color-diff-header-background: #f4f6f9;
+  --color-diff-header-text: #5c6878;
+  --color-success: #087a50;
+  --color-success-background: #eaf8ee;
+  --color-warning: #80530d;
+  --color-warning-background: #fff4e5;
+  --color-error: #b42318;
+  --color-error-background: #fff0ef;
+  --color-info: #38558b;
+  --color-info-background: #edf3ff;
+  --color-focus: #748bff;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 999px;
+
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 14px;
+  --font-size-lg: 18px;
+  --font-size-xl: 24px;
+  --font-weight-medium: 550;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --line-height-body: 1.6;
+
+  --shadow-card: 0 4px 18px rgb(20 35 65 / 3%);
+  --shadow-sidebar: 18px 0 40px rgb(12 20 34 / 16%);
+  --transition-fast: 140ms ease;
+  --z-sidebar-backdrop: 11;
+  --z-sidebar: 12;
+  --z-skip-link: 20;
+}

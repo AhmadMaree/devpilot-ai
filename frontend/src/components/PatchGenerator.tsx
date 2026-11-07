@@ -1,10 +1,15 @@
 
 import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 
 import {
   generatePatchProposal,
 } from "../api/patches/api";
-import type { GeneratedPatchResponse } from "../api/patches/types";
+import type {
+  GeneratePatchRequest,
+  GeneratedPatchResponse,
+} from "../api/patches/types";
+import styles from "./PatchGenerator.module.scss";
 
 interface PatchGeneratorProps {
   repositoryId: string;
@@ -22,6 +27,13 @@ export function PatchGenerator({
   const [instruction, setInstruction] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const generateMutation = useMutation<
+    GeneratedPatchResponse,
+    Error,
+    GeneratePatchRequest
+  >({
+    mutationFn: (payload) => generatePatchProposal(payload),
+  });
 
   async function handleSubmit(
     event: React.FormEvent<HTMLFormElement>,
@@ -34,7 +46,7 @@ export function PatchGenerator({
     setError(null);
 
     try {
-      const result = await generatePatchProposal({
+      const result = await generateMutation.mutateAsync({
         repository_id: repositoryId,
         file_path: filePath.trim(),
         instruction: instruction.trim(),
@@ -58,7 +70,7 @@ export function PatchGenerator({
   return (
     <form
       onSubmit={(event) => void handleSubmit(event)}
-      style={{ display: "grid", gap: 12 }}
+      className={styles.form}
     >
       <h2>Generate a code fix</h2>
 

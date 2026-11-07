@@ -1,0 +1,320 @@
+@use "../styles/breakpoints" as breakpoints;
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: 264px;
+  flex: 0 0 264px;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  padding: 28px 18px 20px;
+  overflow-y: auto;
+  background: var(--color-sidebar);
+  border-right: 1px solid var(--color-sidebar-border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--color-sidebar-heading);
+  text-decoration: none;
+}
+
+.brand:focus-visible,
+.nav-link:focus-visible,
+.skip-link:focus-visible {
+  outline: 3px solid #93c5fd;
+  outline-offset: 3px;
+}
+
+.brand-icon {
+  flex: 0 0 42px;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: var(--color-sidebar-brand);
+  box-shadow: 0 8px 20px rgba(79, 110, 247, 0.25);
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.brand strong,
+.brand small {
+  display: block;
+}
+
+.brand small {
+  margin-top: 4px;
+  color: var(--color-sidebar-muted);
+  font-size: 11px;
+}
+
+.sidebar-workspace {
+  margin-top: 40px;
+}
+
+.sidebar-label {
+  display: block;
+  color: var(--color-sidebar-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.1px;
+}
+
+.repository-item {
+  min-width: 0;
+  margin-top: 11px;
+  padding: 11px 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--color-sidebar-surface);
+}
+
+.repository-mark {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  place-items: center;
+  border-radius: 7px;
+  background: #293852;
+  color: #bac8ff;
+}
+
+.repository-name {
+  min-width: 0;
+  overflow: hidden;
+  color: #e2e8f0;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primary-nav {
+  display: grid;
+  gap: 5px;
+  margin-top: 34px;
+}
+
+.primary-nav > .sidebar-label {
+  margin: 0 10px 9px;
+}
+
+.nav-link {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--color-sidebar-text);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.nav-link:hover {
+  background: #1b2638;
+  color: #fff;
+}
+
+.nav-link-active,
+.nav-link-active:hover {
+  border-color: var(--color-sidebar-active-border);
+  background: var(--color-sidebar-active);
+  color: #fff;
+}
+
+.nav-icon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  place-items: center;
+  color: var(--color-sidebar-icon);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.nav-icon-dashboard::before { content: "⌂"; }
+.nav-icon-repositories::before { content: "▣"; }
+.nav-icon-ai-workspace::before { content: "✳"; }
+.nav-icon-review-center::before { content: "✓"; }
+.nav-icon-activity::before { content: "◷"; }
+.nav-icon-settings::before { content: "⚙"; }
+
+.sidebar-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 22px 10px 2px;
+  color: #96a4b9;
+  font-size: 12px;
+}
+
+.local-indicator,
+.model-status-dot {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.12);
+}
+
+.app-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.app-header {
+  display: flex;
+  min-height: 146px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 30px clamp(24px, 5vw, 64px);
+  border-bottom: 1px solid #e6eaf1;
+  background: #fff;
+}
+
+.page-heading {
+  min-width: 0;
+}
+
+.app-header .eyebrow {
+  margin: 0;
+  color: #6678d9;
+  font-size: 10px;
+  letter-spacing: 1.3px;
+}
+
+.app-header h1 {
+  margin: 6px 0 4px;
+  color: #172033;
+  font-size: clamp(24px, 3vw, 30px);
+  letter-spacing: -0.7px;
+}
+
+.app-header .page-description {
+  margin: 0;
+  font-size: 13px;
+}
+
+.model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  color: #475569;
+}
+
+.model-status-dot {
+  width: 7px;
+  height: 7px;
+  flex-basis: 7px;
+  background: #6177e9;
+  box-shadow: none;
+}
+
+.main-content {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 36px clamp(20px, 5vw, 64px) 64px;
+}
+
+.skip-link {
+  position: fixed;
+  z-index: 20;
+  top: 10px;
+  left: 10px;
+  padding: 10px 14px;
+  transform: translateY(-160%);
+  border-radius: 8px;
+  background: #fff;
+  color: #172033;
+  font-weight: 700;
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
+.mobile-nav-toggle,
+.sidebar-backdrop {
+  display: none;
+}
+
+
+@include breakpoints.tablet-and-below {
+  .sidebar {
+    position: fixed; z-index: var(--z-sidebar); top: 0; bottom: 0; left: 0;
+    width: min(290px, calc(100vw - 56px)); height: 100dvh;
+    transform: translateX(-105%); transition: transform 180ms ease;
+    box-shadow: var(--shadow-sidebar);
+  }
+  .sidebar.sidebar-open { transform: translateX(0); }
+  .sidebar-workspace, .sidebar-footer { display: flex; }
+  .sidebar-workspace { display: block; }
+  .sidebar-backdrop {
+    position: fixed; z-index: var(--z-sidebar-backdrop); inset: 0; display: block;
+    width: 100%; height: 100%; padding: 0; border-radius: 0;
+    background: rgb(15 23 42 / 45%);
+  }
+  .app-main { width: 100%; }
+  .app-header {
+    display: grid;
+    min-height: 126px;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: start;
+    column-gap: 16px;
+    row-gap: 12px;
+    padding: 20px 18px;
+  }
+  .mobile-nav-toggle {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    grid-column: 1;
+    grid-row: 1;
+    place-items: center;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    color: #172033;
+    font-size: 21px;
+  }
+  .page-heading {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .app-header .page-description {
+    max-width: 48ch;
+    font-size: 12px;
+  }
+  .app-header .model-badge {
+    grid-column: 2;
+    grid-row: 2;
+    max-width: 100%;
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+  .main-content { padding: 22px 16px 40px; }
+}

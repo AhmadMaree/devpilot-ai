@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import type { Destination } from "../hooks/useHashNavigation";
+import styles from "./AppShell.module.scss";
 
 const navigationItems: Array<{ id: Destination; label: string }> = [
   { id: "dashboard", label: "Dashboard" },
@@ -66,37 +67,37 @@ export function AppShell({
   }, [mobileNavigationOpen]);
 
   return (
-    <div className="app-shell">
-      <a className="skip-link" href="#main-content">
+    <div className={styles["app-shell"]}>
+      <a className={styles["skip-link"]} href="#main-content">
         Skip to content
       </a>
 
       {mobileNavigationOpen && (
         <button
           type="button"
-          className="sidebar-backdrop"
+          className={styles["sidebar-backdrop"]}
           aria-label="Close navigation"
           onClick={() => setMobileNavigationOpen(false)}
         />
       )}
 
       <aside
-        className={`sidebar${mobileNavigationOpen ? " sidebar-open" : ""}`}
+        className={`${styles.sidebar}${mobileNavigationOpen ? ` ${styles["sidebar-open"]}` : ""}`}
         aria-label="Application sidebar"
       >
-        <a className="brand" href="#dashboard" aria-label="DevPilot AI dashboard">
-          <span className="brand-icon" aria-hidden="true">D</span>
+        <a className={styles.brand} href="#dashboard" aria-label="DevPilot AI dashboard">
+          <span className={styles["brand-icon"]} aria-hidden="true">D</span>
           <span>
             <strong>DevPilot AI</strong>
             <small>Local developer workspace</small>
           </span>
         </a>
 
-        <div className="sidebar-workspace">
-          <span className="sidebar-label">ACTIVE REPOSITORY</span>
-          <div className="repository-item">
-            <span className="repository-mark" aria-hidden="true">⌘</span>
-            <span className="repository-name">
+        <div className={styles["sidebar-workspace"]}>
+          <span className={styles["sidebar-label"]}>ACTIVE REPOSITORY</span>
+          <div className={styles["repository-item"]}>
+            <span className={styles["repository-mark"]} aria-hidden="true">⌘</span>
+            <span className={styles["repository-name"]}>
               {repositoryName || "No repository selected"}
             </span>
           </div>
@@ -104,35 +105,38 @@ export function AppShell({
 
         <nav
           id="primary-navigation"
-          className="primary-nav"
+          className={styles["primary-nav"]}
           aria-label="Main navigation"
         >
-          <span className="sidebar-label">WORKSPACE</span>
+          <span className={styles["sidebar-label"]}>WORKSPACE</span>
           {navigationItems.map((item) => (
             <a
               key={item.id}
               href={`#${item.id}`}
-              className={`nav-link${destination === item.id ? " nav-link-active" : ""}`}
+              className={`${styles["nav-link"]}${destination === item.id ? ` ${styles["nav-link-active"]}` : ""}`}
               aria-current={destination === item.id ? "page" : undefined}
               onClick={() => setMobileNavigationOpen(false)}
             >
-              <span className={`nav-icon nav-icon-${item.id}`} aria-hidden="true" />
+              <span
+                className={`${styles["nav-icon"]} ${styles[`nav-icon-${item.id}`]}`}
+                aria-hidden="true"
+              />
               {item.label}
             </a>
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <span className="local-indicator" aria-hidden="true" />
+        <div className={styles["sidebar-footer"]}>
+          <span className={styles["local-indicator"]} aria-hidden="true" />
           <span>Local development</span>
         </div>
       </aside>
 
-      <div className="app-main">
-        <header className="app-header">
+      <div className={styles["app-main"]}>
+        <header className={styles["app-header"]}>
           <button
             type="button"
-            className="mobile-nav-toggle"
+            className={styles["mobile-nav-toggle"]}
             aria-label={mobileNavigationOpen ? "Close navigation" : "Open navigation"}
             aria-expanded={mobileNavigationOpen}
             aria-controls="primary-navigation"
@@ -140,20 +144,20 @@ export function AppShell({
           >
             <span aria-hidden="true">{mobileNavigationOpen ? "×" : "☰"}</span>
           </button>
-          <div className="page-heading">
-            <p className="eyebrow">DEVPILOT WORKSPACE</p>
+          <div className={styles["page-heading"]}>
+            <p className={styles.eyebrow}>DEVPILOT WORKSPACE</p>
             <h1>{page.title}</h1>
-            <p className="page-description">{page.description}</p>
+            <p className={styles["page-description"]}>{page.description}</p>
           </div>
           {modelLabel && (
-            <div className="model-badge" aria-label={`Selected model: ${modelLabel}`}>
-              <span className="model-status-dot" aria-hidden="true" />
+            <div className={styles["model-badge"]} aria-label={`Selected model: ${modelLabel}`}>
+              <span className={styles["model-status-dot"]} aria-hidden="true" />
               {modelLabel}
             </div>
           )}
         </header>
 
-        <main id="main-content" className="main-content" tabIndex={-1}>
+        <main id="main-content" className={styles["main-content"]} tabIndex={-1}>
           {children}
         </main>
       </div>

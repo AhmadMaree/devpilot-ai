@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { getInvestigationHistory } from "../api/api";
+import { queryKeys } from "../api/queryKeys";
 import {
   getRepositories,
   getRepositoryIndexMetadata,
@@ -33,23 +34,23 @@ export function Dashboard({
   onOpenProposal,
 }: DashboardProps) {
   const repositoriesQuery = useQuery({
-    queryKey: ["repositories"],
+    queryKey: queryKeys.repositories.all,
     queryFn: ({ signal }) => getRepositories(signal),
   });
   const repository = repositoriesQuery.data?.find((item) => item.id === repositoryId);
   const metadataQuery = useQuery<RepositoryIndexMetadata | null>({
-    queryKey: ["repository-index-metadata", repositoryId],
+    queryKey: queryKeys.indexing.metadata(repositoryId),
     queryFn: ({ signal }) => getRepositoryIndexMetadata(repositoryId, signal),
     enabled: Boolean(repositoryId),
   });
   const statusQuery = useQuery<IndexingJob | null>({
-    queryKey: ["repository-index-status", repositoryId],
+    queryKey: queryKeys.indexing.status(repositoryId),
     queryFn: ({ signal }) => getRepositoryIndexingStatus(repositoryId, signal),
     enabled: Boolean(repositoryId),
     refetchInterval: (query) => isIndexing(query.state.data) ? 2000 : false,
   });
   const investigationsQuery = useQuery<InvestigationSummary[]>({
-    queryKey: ["investigation-history"],
+    queryKey: queryKeys.investigations.all,
     queryFn: ({ signal }) => getInvestigationHistory(signal),
   });
 

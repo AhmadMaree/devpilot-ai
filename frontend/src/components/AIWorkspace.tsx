@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { get_investigation } from "../api/api";
+import { queryKeys } from "../api/queryKeys";
 import {
   getRepositoryIndexMetadata,
   getRepositoryIndexingStatus,
@@ -43,12 +44,12 @@ export function AIWorkspace({
 }: AIWorkspaceProps) {
   const [mode, setMode] = useState<WorkspaceMode>("ask");
   const metadataQuery = useQuery<RepositoryIndexMetadata | null>({
-    queryKey: ["repository-index-metadata", repositoryId],
+    queryKey: queryKeys.indexing.metadata(repositoryId),
     queryFn: ({ signal }) => getRepositoryIndexMetadata(repositoryId, signal),
     enabled: Boolean(repositoryId),
   });
   const statusQuery = useQuery<IndexingJob | null>({
-    queryKey: ["repository-index-status", repositoryId],
+    queryKey: queryKeys.indexing.status(repositoryId),
     queryFn: ({ signal }) => getRepositoryIndexingStatus(repositoryId, signal),
     enabled: Boolean(repositoryId),
     refetchInterval: (query) => isIndexing(query.state.data) ? 2000 : false,
@@ -190,6 +191,15 @@ function AskCode({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const investigationMutation = useMutation({
+    mutationFn: ({
+      request,
+      signal,
+    }: {
+      request: { repository_id: string; question: string };
+      signal: AbortSignal;
+    }) => get_investigation(request, signal),
+  });
 
   useEffect(() => {
     return () => {
@@ -214,10 +224,10 @@ function AskCode({
     setResult(null);
 
     try {
-      const saved = await get_investigation(
-        { repository_id: repositoryId, question: trimmedQuestion },
-        controller.signal,
-      );
+      const saved = await investigationMutation.mutateAsync({
+        request: { repository_id: repositoryId, question: trimmedQuestion },
+        signal: controller.signal,
+      });
       if (!controller.signal.aborted) {
         setResult(saved.result);
         onInvestigationComplete(saved);

@@ -1,0 +1,401 @@
+.repository-onboarding {
+  display: grid;
+  gap: 18px;
+}
+
+.repository-section-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+
+.repository-section-heading .step-number {
+  margin-top: 1px;
+}
+
+.repository-section-heading h2 {
+  margin: 0 0 6px;
+}
+
+.repository-section-heading p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.repository-connect-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.repository-register-form {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.repository-register-form h3,
+.repository-github-import h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.repository-register-form label {
+  margin-top: 3px;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.repository-register-form input {
+  width: 100%;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 9px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.repository-register-form input:focus {
+  border-color: var(--color-primary-hover);
+}
+
+.form-hint {
+  margin: 0;
+  color: #788498;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.repository-github-import {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fafbfe;
+}
+
+.repository-github-import > p {
+  margin: 0 0 14px;
+  font-size: 12px;
+}
+
+.repository-list-panel {
+  scroll-margin-top: 24px;
+}
+
+.repository-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.repository-card {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e3e8f0;
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.repository-card-active {
+  border-color: #8799f7;
+  box-shadow: 0 0 0 2px rgba(79, 110, 247, 0.1);
+}
+
+.repository-card-header,
+.repository-card-title,
+.repository-card-actions,
+.repository-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.repository-card-header {
+  justify-content: space-between;
+}
+
+.repository-card-title {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.repository-card-title h3 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+
+.active-repository-badge,
+.repository-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.active-repository-badge {
+  background: #e9edff;
+  color: #405bd4;
+}
+
+.status-indexed {
+  background: #e0f6eb;
+  color: var(--color-success);
+}
+
+.status-not-indexed {
+  background: #eef1f6;
+  color: #596579;
+}
+
+.repository-details {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+}
+
+.repository-details > div {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  gap: 10px;
+  font-size: 12px;
+}
+
+.repository-details dt {
+  color: #788498;
+}
+
+.repository-details dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #344054;
+}
+
+.repository-index-progress,
+.repository-index-metadata {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 13px;
+  border-radius: 9px;
+  background: #f7f8fc;
+  font-size: 12px;
+}
+
+.repository-progress-label {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.repository-progress-label span {
+  color: #68758a;
+  white-space: nowrap;
+}
+
+.repository-index-progress progress {
+  width: 100%;
+  height: 8px;
+  accent-color: #526cf5;
+}
+
+.repository-index-metadata {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  color: #526075;
+}
+
+.repository-index-metadata strong {
+  color: var(--color-success);
+}
+
+.repository-failure,
+.repository-error-state {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid #f3c9c4;
+  border-radius: 9px;
+  background: #fff7f6;
+  color: #8f3028;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.repository-failure p,
+.repository-error-state p {
+  margin: 7px 0 0;
+}
+
+.repository-error {
+  margin: 0;
+  color: #a1342b;
+  font-size: 12px;
+}
+
+.repository-empty-state {
+  padding: 25px;
+  border: 1px dashed #cbd4e2;
+  border-radius: 11px;
+  text-align: center;
+}
+
+.repository-empty-state p {
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.repository-card-actions {
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+
+.repository-card-actions button,
+.repository-card-actions .primary-link {
+  min-height: 39px;
+  padding: 9px 13px;
+  font-size: 12px;
+}
+
+.repository-selected-button {
+  background: #e8edff;
+  color: #4057bd;
+}
+
+.repository-card-actions .primary-link {
+  margin-left: auto;
+}
+
+:focus-visible {
+  outline: 3px solid #748bff;
+  outline-offset: 3px;
+}
+
+@media (max-width: 800px) {
+  .app-shell {
+    flex-direction: row;
+  }
+
+  .sidebar {
+    position: fixed;
+    z-index: 12;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(290px, calc(100vw - 56px));
+    height: 100dvh;
+    transform: translateX(-105%);
+    transition: transform 180ms ease;
+    box-shadow: 18px 0 40px rgba(12, 20, 34, 0.16);
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-workspace,
+  .sidebar-footer {
+    display: flex;
+  }
+
+  .sidebar-workspace {
+    display: block;
+  }
+
+  .sidebar-backdrop {
+    position: fixed;
+    z-index: 11;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border-radius: 0;
+    background: rgba(15, 23, 42, 0.45);
+  }
+
+  .app-main {
+    width: 100%;
+  }
+
+  .app-header {
+    min-height: 126px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 20px 18px;
+  }
+
+  .mobile-nav-toggle {
+    display: grid;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font-size: 21px;
+  }
+
+  .page-heading {
+    flex: 1;
+  }
+
+  .app-header .page-description {
+    max-width: 48ch;
+    font-size: 12px;
+  }
+
+  .app-header .model-badge {
+    display: inline-flex;
+    max-width: calc(100% - 54px);
+    margin-left: 54px;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  .main-content {
+    padding: 22px 16px 40px;
+  }
+
+  .onboarding-steps {
+    grid-template-columns: 1fr;
+  }
+
+  .repository-connect-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .repository-card {
+    padding: 15px;
+  }
+
+  .repository-card-actions .primary-link {
+    margin-left: 0;
+  }
+
+  .dashboard-context {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+
+

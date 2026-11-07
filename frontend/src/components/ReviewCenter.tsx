@@ -9,6 +9,7 @@ import type {
   PatchStatus,
 } from "../api/patches/types";
 import { getPatchProposals } from "../api/patches/api";
+import { queryKeys } from "../api/queryKeys";
 import { PatchGenerator } from "./PatchGenerator";
 import { PatchReview } from "./PatchReview";
 
@@ -36,7 +37,7 @@ export function ReviewCenter({
   const [statusOverrides, setStatusOverrides] = useState<Record<string, PatchStatus>>({});
   const queryClient = useQueryClient();
   const proposalsQuery = useQuery({
-    queryKey: ["patch-proposals", repositoryId, page],
+    queryKey: queryKeys.proposals.page(repositoryId, page * PROPOSAL_PAGE_SIZE),
     queryFn: ({ signal }) =>
       getPatchProposals(repositoryId, page * PROPOSAL_PAGE_SIZE, signal),
     enabled: Boolean(repositoryId),
@@ -73,28 +74,18 @@ export function ReviewCenter({
         (proposal) => proposal.id === proposalId,
       )?.status;
       const previousStatus = statusOverridesRef.current[proposalId] ?? currentStatus;
+      if (previousStatus === status) return;
       setStatusOverrides((current) => ({ ...current, [proposalId]: status }));
       queryClient.setQueryData<PatchProposalDetails>(
-        ["review-proposal-details", proposalId],
+        queryKeys.proposals.detail(proposalId),
         (current) => current ? { ...current, status } : current,
       );
       queryClient.setQueryData<PatchProposalSummary[]>(
-        ["patch-proposals", repositoryId, page],
+        queryKeys.proposals.page(repositoryId, page * PROPOSAL_PAGE_SIZE),
         (current) => current?.map((proposal) =>
           proposal.id === proposalId ? { ...proposal, status } : proposal,
         ),
       );
-      if (previousStatus !== status) {
-        void queryClient.invalidateQueries({
-          queryKey: ["patch-proposals", repositoryId],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ["review-proposal-details", proposalId],
-        });
-        void queryClient.invalidateQueries({
-          queryKey: ["review-proposal-preview", proposalId],
-        });
-      }
       onStatusChange(proposalId, status);
     },
     [onStatusChange, page, queryClient, repositoryId],

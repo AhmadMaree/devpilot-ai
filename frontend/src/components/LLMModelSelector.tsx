@@ -1,5 +1,5 @@
-
 import { useEffect, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   getLLMModels,
@@ -7,13 +7,8 @@ import {
   getLLMSelection,
   updateLLMSelection,
 } from "../api/llm/api";
-
-import type {
-    LLMModelInfo,
-    LLMProvider,
-    LLMSelection,
-    LLMProviderInfo
-} from "../api/llm/types"
+import { queryKeys } from "../api/queryKeys";
+import type { LLMProvider, LLMSelection } from "../api/llm/types";
 
 interface LLMModelSelectorProps {
   onSelectionChange?: (selection: LLMSelection) => void;
@@ -22,132 +17,63 @@ interface LLMModelSelectorProps {
 export function LLMModelSelector({
   onSelectionChange,
 }: LLMModelSelectorProps) {
-  const [providers, setProviders] = useState<LLMProviderInfo[]>([]);
-  const [models, setModels] = useState<LLMModelInfo[]>([]);
-  const [saved, setSaved] = useState<LLMSelection | null>(null);
-
-  const [provider, setProvider] = useState<LLMProvider>("ollama");
-  const [model, setModel] = useState("");
-
-  const [loading, setLoading] = useState(true);
-  const [loadingModels, setLoadingModels] = useState(false);
-  const [saving, setSaving] = useState(false);
-
-  const [error, setError] = useState("");
+  const queryClient = useQueryClient();
+  const providersQuery = useQuery({
+    queryKey: queryKeys.llm.providers,
+    queryFn: ({ signal }) => getLLMProviders(signal),
+  });
+  const selectionQuery = useQuery({
+    queryKey: queryKeys.llm.selection,
+    queryFn: ({ signal }) => getLLMSelection(signal),
+  });
+  const [providerOverride, setProviderOverride] = useState<LLMProvider | null>(null);
+  const [modelOverride, setModelOverride] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const saved = selectionQuery.data ?? null;
+  const provider = providerOverride ?? saved?.provider ?? "ollama";
+  const modelsQuery = useQuery({
+    queryKey: queryKeys.llm.models(provider),
+    queryFn: ({ signal }) => getLLMModels(provider, signal),
+    enabled: !selectionQuery.isPending && !selectionQuery.isError,
+  });
+  const saveMutation = useMutation({
+    mutationFn: (selection: LLMSelection) => updateLLMSelection(selection),
+    onSuccess: (selection) => {
+      queryClient.setQueryData(queryKeys.llm.selection, selection);
+      setMessage(`Saved ${selection.provider} / ${selection.model}`);
+      onSelectionChange?.(selection);
+    },
+  });
 
   useEffect(() => {
-    let active = true;
+    if (selectionQuery.data) onSelectionChange?.(selectionQuery.data);
+  }, [onSelectionChange, selectionQuery.data]);
 
-    async function initialize() {
-      try {
-        const [availableProviders, current] = await Promise.all([
-          getLLMProviders(),
-          getLLMSelection(),
-        ]);
-
-        if (!active) return;
-
-        setProviders(availableProviders);
-        setSaved(current);
-        setProvider(current.provider);
-        setModel(current.model);
-        onSelectionChange?.(current);
-      } catch (err) {
-        if (active) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load LLM settings",
-          );
-        }
-      } finally {
-        if (active) setLoading(false);
-      }
-    }
-
-    void initialize();
-
-    return () => {
-      active = false;
-    };
-  }, [onSelectionChange]);
-
-  useEffect(() => {
-    if (loading) return;
-
-    let active = true;
-
-    async function loadModels() {
-      setLoadingModels(true);
-      setError("");
-      setModels([]);
-
-      try {
-        const availableModels = await getLLMModels(provider);
-
-        if (!active) return;
-
-        setModels(availableModels);
-        setModel((current) =>
-          availableModels.some((item) => item.name === current)
-            ? current
-            : availableModels[0]?.name ?? "",
-        );
-      } catch (err) {
-        if (active) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "Failed to load models",
-          );
-          setModel("");
-        }
-      } finally {
-        if (active) setLoadingModels(false);
-      }
-    }
-
-    void loadModels();
-
-    return () => {
-      active = false;
-    };
-  }, [provider, loading]);
-
-  async function saveSelection() {
-    if (!model || saving || loadingModels) return;
-
-    setSaving(true);
-    setError("");
-    setMessage("");
-
-    try {
-      const result = await updateLLMSelection({
-        provider,
-        model,
-      });
-
-      setSaved(result);
-      onSelectionChange?.(result);
-      setMessage(`Saved ${result.provider} / ${result.model}`);
-    } catch (err) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to save model selection",
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
+  const loading = providersQuery.isPending || selectionQuery.isPending;
+  const loadingModels = modelsQuery.isPending;
+  const error = providersQuery.error?.message
+    ?? selectionQuery.error?.message
+    ?? modelsQuery.error?.message
+    ?? saveMutation.error?.message
+    ?? "";
+  const providers = providersQuery.data ?? [];
+  const models = modelsQuery.data ?? [];
+  const model = modelOverride ?? (
+    saved?.provider === provider && models.some((item) => item.name === saved.model)
+      ? saved.model
+      : models[0]?.name ?? ""
+  );
+  const changed = saved?.provider !== provider || saved?.model !== model;
 
   if (loading) {
-    return <p>Loading AI model settings...</p>;
+    return <p role="status">Loading AI model settings...</p>;
   }
 
-  const changed =
-    saved?.provider !== provider || saved?.model !== model;
+  function saveSelection() {
+    if (!model || saveMutation.isPending || loadingModels) return;
+    setMessage("");
+    saveMutation.mutate({ provider, model });
+  }
 
   return (
     <section aria-label="AI model settings">
@@ -159,19 +85,15 @@ export function LLMModelSelector({
         <select
           id="llm-provider"
           value={provider}
-          disabled={saving}
+          disabled={saveMutation.isPending}
           onChange={(event) => {
-            setProvider(event.target.value as LLMProvider);
-            setModel("");
+            setProviderOverride(event.target.value as LLMProvider);
+            setModelOverride(null);
             setMessage("");
           }}
         >
           {providers.map((item) => (
-            <option
-              key={item.id}
-              value={item.id}
-              disabled={!item.available}
-            >
+            <option key={item.id} value={item.id} disabled={!item.available}>
               {item.name}
               {!item.available ? " (Unavailable)" : ""}
             </option>
@@ -184,16 +106,15 @@ export function LLMModelSelector({
         <select
           id="llm-model"
           value={model}
-          disabled={saving || loadingModels}
+          disabled={saveMutation.isPending || loadingModels}
           onChange={(event) => {
-            setModel(event.target.value);
+            setModelOverride(event.target.value);
             setMessage("");
           }}
         >
           <option value="" disabled>
             {loadingModels ? "Loading models..." : "Select model"}
           </option>
-
           {models.map((item) => (
             <option key={item.name} value={item.name}>
               {item.name}
@@ -204,18 +125,15 @@ export function LLMModelSelector({
 
       <button
         type="button"
-        disabled={!changed || !model || saving || loadingModels}
-        onClick={() => void saveSelection()}
+        disabled={!changed || !model || saveMutation.isPending || loadingModels}
+        onClick={saveSelection}
       >
-        {saving ? "Saving..." : "Save Model"}
+        {saveMutation.isPending ? "Saving..." : "Save Model"}
       </button>
 
       {saved && (
-        <p>
-          Active model: {saved.provider} / {saved.model}
-        </p>
+        <p>Active model: {saved.provider} / {saved.model}</p>
       )}
-
       {message && <p role="status">{message}</p>}
       {error && <p role="alert">{error}</p>}
     </section>

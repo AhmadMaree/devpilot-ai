@@ -1,32 +1,21 @@
+import { apiClient } from "../client";
 import type {
   DevelopmentWorkflowDetail,
   DevelopmentWorkflowRequest,
   DevelopmentWorkflowResponse,
   DevelopmentWorkflowSummary,
 } from "./types";
-import { apiUrl } from "../config";
 
 export async function runDevelopmentWorkflow(
   request: DevelopmentWorkflowRequest,
   signal?: AbortSignal,
 ): Promise<DevelopmentWorkflowResponse> {
-  const response = await fetch(
-    apiUrl("/api/v1/development/workflows"),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-      signal,
-    },
+  const response = await apiClient.post<DevelopmentWorkflowResponse>(
+    "/development/workflows",
+    request,
+    { signal, timeout: 180_000 },
   );
-
-  if (!response.ok) {
-    throw new Error(`Workflow request failed (${response.status})`);
-  }
-
-  return (await response.json()) as DevelopmentWorkflowResponse;
+  return response.data;
 }
 
 export async function getDevelopmentWorkflows(
@@ -39,30 +28,20 @@ export async function getDevelopmentWorkflows(
     limit: "50",
     offset: String(offset),
   });
-  const response = await fetch(
-    apiUrl(`/api/v1/development/workflows?${params.toString()}`),
+  const response = await apiClient.get<DevelopmentWorkflowSummary[]>(
+    `/development/workflows?${params.toString()}`,
     { signal },
   );
-
-  if (!response.ok) {
-    throw new Error(`Could not load workflow history (${response.status})`);
-  }
-
-  return (await response.json()) as DevelopmentWorkflowSummary[];
+  return response.data;
 }
 
 export async function getDevelopmentWorkflow(
   workflowId: string,
   signal?: AbortSignal,
 ): Promise<DevelopmentWorkflowDetail> {
-  const response = await fetch(
-    apiUrl(`/api/v1/development/workflows/${encodeURIComponent(workflowId)}`),
+  const response = await apiClient.get<DevelopmentWorkflowDetail>(
+    `/development/workflows/${encodeURIComponent(workflowId)}`,
     { signal },
   );
-
-  if (!response.ok) {
-    throw new Error(`Could not load workflow details (${response.status})`);
-  }
-
-  return (await response.json()) as DevelopmentWorkflowDetail;
+  return response.data;
 }

@@ -1,12 +1,12 @@
 
 import { useCallback, useEffect, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { getSavedInvestigation } from "./api/api";
 import { getLLMSelection } from "./api/llm/api";
 import { getRepositories } from "./api/repositories";
+import { queryKeys } from "./api/queryKeys";
 import type { SavedInvestigation } from "./api/types";
-import type { LLMSelection } from "./api/llm/types";
 import type { KnownPatchProposal, PatchStatus } from "./api/patches/types";
 import { LLMModelSelector } from "./components/LLMModelSelector";
 import { AppShell } from "./components/AppShell";
@@ -16,78 +16,54 @@ import { ReviewCenter } from "./components/ReviewCenter";
 import { Dashboard } from "./components/Dashboard";
 import { Activity } from "./components/Activity";
 import { useHashNavigation } from "./hooks/useHashNavigation";
-import "./App.css";
+import "./App.scss";
 
 function App() {
   const queryClient = useQueryClient();
   const destination = useHashNavigation();
-  const [repositoryId, setRepositoryId] = useState("");
-  const [repositoryName, setRepositoryName] = useState<string | null>(null);
-  const [repositoryLoading, setRepositoryLoading] = useState(true);
-  const [modelSelection, setModelSelection] = useState<LLMSelection | null>(null);
+  const repositoriesQuery = useQuery({
+    queryKey: queryKeys.repositories.all,
+    queryFn: ({ signal }) => getRepositories(signal),
+  });
+  const llmSelectionQuery = useQuery({
+    queryKey: queryKeys.llm.selection,
+    queryFn: ({ signal }) => getLLMSelection(signal),
+  });
+  const [repositoryId, setRepositoryId] = useState(
+    () => window.localStorage.getItem("devpilot.activeRepositoryId") ?? "",
+  );
   const [activeInvestigation, setActiveInvestigation] =
     useState<SavedInvestigation | null>(null);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [repositoryLoadError, setRepositoryLoadError] = useState<string | null>(null);
   const [activityError, setActivityError] = useState<string | null>(null);
 
   const [proposalId, setProposalId] = useState("");
   const [knownProposals, setKnownProposals] = useState<KnownPatchProposal[]>([]);
 
-  useEffect(() => {
-    let active = true;
-    void getRepositories()
-      .then((repositories) => {
-        if (!active) return;
-        const savedId = window.localStorage.getItem("devpilot.activeRepositoryId");
-        const selected = repositories.find((repository) => repository.id === savedId)
-          ?? repositories[0];
-        setRepositoryId(selected?.id ?? "");
-        setRepositoryName(selected?.name ?? null);
-        if (selected) {
-          window.localStorage.setItem("devpilot.activeRepositoryId", selected.id);
-        } else {
-          window.localStorage.removeItem("devpilot.activeRepositoryId");
-        }
-        setRepositoryLoading(false);
-      })
-      .catch((caughtError: unknown) => {
-        if (active) {
-          setRepositoryLoadError(
-            caughtError instanceof Error
-              ? caughtError.message
-              : "Could not load repositories.",
-          );
-          setRepositoryLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+  const selectedRepository = repositoriesQuery.data?.find(
+    (repository) => repository.id === repositoryId,
+  ) ?? repositoriesQuery.data?.[0] ?? null;
+  const activeRepositoryId = selectedRepository?.id ?? "";
+  const repositoryName = selectedRepository?.name ?? null;
 
   useEffect(() => {
-    let active = true;
-    void getLLMSelection()
-      .then((selection) => {
-        if (active) setModelSelection(selection);
-      })
-      .catch(() => {
-        if (active) setModelSelection(null);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (!repositoriesQuery.isSuccess) return;
+    if (selectedRepository) {
+      window.localStorage.setItem("devpilot.activeRepositoryId", selectedRepository.id);
+    } else {
+      window.localStorage.removeItem("devpilot.activeRepositoryId");
+    }
+  }, [repositoriesQuery.isSuccess, selectedRepository]);
 
   async function openInvestigation(id: string) {
     setActivityError(null);
 
     try {
-      const saved = await getSavedInvestigation(id);
+      const saved = await queryClient.fetchQuery({
+        queryKey: queryKeys.investigations.detail(id),
+        queryFn: ({ signal }) => getSavedInvestigation(id, signal),
+      });
 
       setSelectedId(saved.id);
       setActiveInvestigation(saved);
@@ -101,12 +77,8 @@ function App() {
     }
   }
 
-  const handleRepositoryChange = useCallback((
-    id: string,
-    name: string | null = null,
-  ) => {
+  const handleRepositoryChange = useCallback((id: string) => {
     setRepositoryId(id);
-    setRepositoryName(name);
     if (id) {
       window.localStorage.setItem("devpilot.activeRepositoryId", id);
     } else {
@@ -121,18 +93,18 @@ function App() {
     ]);
     setProposalId(proposal.id);
     void queryClient.invalidateQueries({
-      queryKey: ["patch-proposals", proposal.repository_id],
+      queryKey: queryKeys.proposals.byRepository(proposal.repository_id),
     });
   }, [queryClient]);
 
   const handleWorkflowFinished = useCallback(() => {
     void queryClient.invalidateQueries({
-      queryKey: ["development-workflows", repositoryId],
+      queryKey: queryKeys.workflows.byRepository(activeRepositoryId),
     });
     void queryClient.invalidateQueries({
-      queryKey: ["patch-proposals", repositoryId],
+      queryKey: queryKeys.proposals.byRepository(activeRepositoryId),
     });
-  }, [queryClient, repositoryId]);
+  }, [queryClient, activeRepositoryId]);
 
   const handleOpenProposal = useCallback((id: string) => {
     setProposalId(id);
@@ -154,21 +126,21 @@ function App() {
       destination={destination}
       repositoryName={repositoryName}
       modelLabel={
-        modelSelection
-          ? `${modelSelection.provider} · ${modelSelection.model}`
+        llmSelectionQuery.data
+          ? `${llmSelectionQuery.data.provider} · ${llmSelectionQuery.data.model}`
           : null
       }
     >
       {destination === "dashboard" && (
         <>
-          {repositoryLoadError && (
+          {repositoriesQuery.isError && (
             <p className="indexing-error" role="alert">
-              Could not load the active repository: {repositoryLoadError}
+              Could not load the active repository: {repositoriesQuery.error.message}
             </p>
           )}
           <Dashboard
-            repositoryId={repositoryId}
-            repositoryLoading={repositoryLoading}
+            repositoryId={activeRepositoryId}
+            repositoryLoading={repositoriesQuery.isPending}
             proposals={knownProposals}
             onOpenInvestigation={(id) => void openInvestigation(id)}
             onOpenProposal={handleOpenProposal}
@@ -178,20 +150,20 @@ function App() {
 
       {destination === "repositories" && (
         <RepositoryIndexing
-          selectedRepositoryId={repositoryId}
+          selectedRepositoryId={activeRepositoryId}
           onRepositoryChange={handleRepositoryChange}
         />
       )}
 
       {destination === "ai-workspace" && (
         <AIWorkspace
-          repositoryId={repositoryId}
+          repositoryId={activeRepositoryId}
           repositoryName={repositoryName}
           restoredInvestigation={activeInvestigation}
           onInvestigationComplete={(saved) => {
             setActiveInvestigation(saved);
             setSelectedId(saved.id);
-            void queryClient.invalidateQueries({ queryKey: ["investigation-history"] });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.investigations.all });
           }}
           onOpenProposal={handleOpenProposal}
           onProposalCreated={handleProposalCreated}
@@ -201,7 +173,7 @@ function App() {
 
       {destination === "review-center" && (
         <ReviewCenter
-          repositoryId={repositoryId}
+          repositoryId={activeRepositoryId}
           proposals={knownProposals}
           selectedProposalId={proposalId}
           onSelectProposal={setProposalId}
@@ -212,7 +184,7 @@ function App() {
 
       {destination === "activity" && (
         <Activity
-          repositoryId={repositoryId}
+          repositoryId={activeRepositoryId}
           selectedInvestigationId={selectedId}
           openError={activityError}
           onOpenInvestigation={(id) => void openInvestigation(id)}
@@ -222,7 +194,7 @@ function App() {
 
       {destination === "settings" && (
         <section className="panel settings-panel">
-          <LLMModelSelector onSelectionChange={setModelSelection} />
+          <LLMModelSelector />
         </section>
       )}
     </AppShell>

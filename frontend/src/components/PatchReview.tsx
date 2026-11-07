@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
   approvePatch,
@@ -7,11 +8,11 @@ import {
   PatchApiError,
   rejectPatch,
 } from "../api/patches/api";
+import { ApiError } from "../api/errors";
+import { queryKeys } from "../api/queryKeys";
 import type {
   KnownPatchProposal,
-  PatchActionResponse,
   PatchPreview,
-  PatchProposalDetails,
   PatchStatus,
 } from "../api/patches/types";
 import { PatchDiffViewer } from "./PatchDiffViewer";
@@ -22,77 +23,67 @@ interface PatchReviewProps {
 }
 
 export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
-  const [details, setDetails] = useState<PatchProposalDetails | null>(null);
-  const [preview, setPreview] = useState<PatchPreview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  const detailsQuery = useQuery({
+    queryKey: queryKeys.proposals.detail(proposal.id),
+    queryFn: ({ signal }) => getPatchProposalDetails(proposal.id, signal),
+  });
+  const previewQuery = useQuery({
+    queryKey: queryKeys.proposals.preview(proposal.id),
+    queryFn: ({ signal }) => getPatchPreview(proposal.id, signal),
+  });
+  const [actionError, setActionError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const actionLockRef = useRef(false);
+  const details = detailsQuery.data ?? null;
+  const preview = previewQuery.data ?? null;
+  const loading = detailsQuery.isPending || previewQuery.isPending;
+  const actionMutation = useMutation({
+    mutationFn: ({
+      action,
+    }: {
+      action: "approve" | "reject";
+    }) => action === "approve"
+      ? approvePatch(proposal.id)
+      : rejectPatch(proposal.id),
+    onSuccess: async (result) => {
+      setMessage(result.message);
+      onStatusChange(proposal.id, result.status);
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.proposals.detail(proposal.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.proposals.preview(proposal.id),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.proposals.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.workflows.all,
+        }),
+      ]);
+    },
+  });
+  const error = actionError
+    ?? (detailsQuery.isError
+      ? reviewErrorMessage(detailsQuery.error, "details")
+      : previewQuery.isError && details?.status === "pending"
+        ? reviewErrorMessage(previewQuery.error, "preview")
+        : null);
   const isPending = details?.status === "pending";
+  const submitting = actionMutation.isPending;
   const isHistorical = details?.status === "applied" || details?.status === "rejected";
   const staleFile = isPending
-    && (error?.startsWith("File changed since proposal creation.") ?? false);
+    && (previewQuery.error instanceof ApiError
+      || previewQuery.error instanceof PatchApiError)
+    && previewQuery.error.status === 409;
   const diff = preview?.diff;
   const hasDiff = typeof diff === "string" && diff.length > 0;
 
   useEffect(() => {
-    let active = true;
-
-    void getPatchProposalDetails(proposal.id)
-      .then((currentDetails) => {
-        if (!active) return;
-        setDetails(currentDetails);
-        onStatusChange(proposal.id, currentDetails.status);
-        return getPatchPreview(proposal.id)
-          .then((currentPreview) => {
-            if (active) {
-              setPreview(currentPreview);
-              setError(null);
-            }
-          })
-          .catch((caughtError: unknown) => {
-            if (active && currentDetails.status === "pending") {
-              setError(reviewErrorMessage(caughtError, "preview"));
-            } else if (active && isTerminalStatus(currentDetails.status)) {
-              setError("Could not load the saved historical diff. Retry to try again.");
-            }
-          });
-      })
-      .catch((caughtError: unknown) => {
-        if (active) setError(reviewErrorMessage(caughtError, "details"));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [onStatusChange, proposal.id]);
-
-  async function refreshProposalData(
-    preserveError = false,
-  ): Promise<PatchProposalDetails> {
-    const latest = await getPatchProposalDetails(proposal.id);
-    setDetails(latest);
-    onStatusChange(proposal.id, latest.status);
-    try {
-      const latestPreview = await getPatchPreview(proposal.id);
-      setPreview(latestPreview);
-      if (!preserveError) setError(null);
-    } catch (caughtError) {
-      if (latest.status === "pending") {
-        setError(reviewErrorMessage(caughtError, "preview"));
-      } else if (isTerminalStatus(latest.status)) {
-        setError("Could not load the saved historical diff. Retry to try again.");
-      } else {
-        setError(null);
-      }
-      throw caughtError;
-    }
-    return latest;
-  }
+    if (details) onStatusChange(proposal.id, details.status);
+  }, [details, onStatusChange, proposal.id]);
 
   async function handleAction(action: "approve" | "reject") {
     if (
@@ -100,6 +91,7 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
       || !details
       || details.status !== "pending"
       || (action === "approve" && !hasDiff)
+      || submitting
     ) {
       return;
     }
@@ -115,37 +107,17 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
       }
     }
 
-    setSubmitting(true);
-    setError(null);
+    setActionError(null);
     setMessage(null);
 
     try {
-      try {
-        const result: PatchActionResponse = action === "approve"
-          ? await approvePatch(proposal.id)
-          : await rejectPatch(proposal.id);
-        setMessage(result.message);
-        onStatusChange(proposal.id, result.status);
-      } catch (caughtError) {
-        setError(reviewErrorMessage(caughtError, action));
-        try {
-          await refreshProposalData(true);
-        } catch {
-          // Keep the action error; the refreshed status or preview may be unavailable.
-        }
-        return;
-      }
-
-      try {
-        await refreshProposalData();
-      } catch (caughtError) {
-        setError(
-          `The action completed, but proposal history could not be refreshed: ${reviewErrorMessage(caughtError, "refresh")}`,
-        );
-      }
+      await actionMutation.mutateAsync({ action });
+    } catch (caughtError) {
+      setActionError(reviewErrorMessage(caughtError, action));
+      void detailsQuery.refetch();
+      void previewQuery.refetch();
     } finally {
       actionLockRef.current = false;
-      setSubmitting(false);
     }
   }
 
@@ -248,7 +220,20 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
                 </div>
                 {hasDiff && <span>{diff.split("\n").length} lines</span>}
               </div>
-              {hasDiff ? (
+              {previewQuery.isError ? (
+                <div className="review-preview-unavailable" role="alert">
+                  <p>
+                    Could not load the saved historical diff. Retry to try again.
+                  </p>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void previewQuery.refetch()}
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : hasDiff ? (
                 <PatchDiffViewer diff={diff} />
               ) : (
                 <p className="review-preview-unavailable" role="status">
@@ -328,12 +313,11 @@ export function PatchReview({ proposal, onStatusChange }: PatchReviewProps) {
   );
 
   async function handleRefresh() {
-    setError(null);
-    try {
-      await refreshProposalData();
-    } catch (caughtError) {
-      setError(reviewErrorMessage(caughtError, "refresh"));
-    }
+    setActionError(null);
+    await Promise.all([
+      detailsQuery.refetch(),
+      previewQuery.refetch(),
+    ]);
   }
 }
 
@@ -377,10 +361,6 @@ function canReview(status: PatchStatus, preview: PatchPreview | null): boolean {
     && preview.diff.length > 0;
 }
 
-function isTerminalStatus(status: PatchStatus): boolean {
-  return status === "applied" || status === "rejected";
-}
-
 function statusLabel(status: PatchStatus): string {
   switch (status) {
     case "pending":
@@ -397,7 +377,7 @@ function statusLabel(status: PatchStatus): string {
 }
 
 function reviewErrorMessage(error: unknown, operation: string): string {
-  if (error instanceof PatchApiError) {
+  if (error instanceof ApiError || error instanceof PatchApiError) {
     if (error.status === 404) {
       return "This proposal no longer exists. It may have been removed from the local proposal store.";
     }

@@ -1,3 +1,5 @@
+import styles from "./PatchDiffViewer.module.scss";
+
 interface PatchDiffViewerProps {
   diff: string;
 }
@@ -7,7 +9,7 @@ export function PatchDiffViewer({ diff }: PatchDiffViewerProps) {
 
   return (
     <div
-      className="patch-diff"
+      className={styles["patch-diff"]}
       role="region"
       aria-label="Unified patch diff"
       tabIndex={0}
@@ -26,8 +28,11 @@ export function PatchDiffViewer({ diff }: PatchDiffViewerProps) {
                     : "diff-context";
 
             return (
-              <span className={`patch-diff-line ${kind}`} key={`${index}-${line}`}>
-                <span className="patch-diff-line-number" aria-hidden="true">
+              <span
+                className={`${styles["patch-diff-line"]} ${styles[kind]}`}
+                key={`${index}-${line}`}
+              >
+                <span className={styles["patch-diff-line-number"]} aria-hidden="true">
                   {index + 1}
                 </span>
                 <span>{line || " "}</span>

@@ -1,5 +1,5 @@
 import type { Repository } from "../types";
-import { apiUrl } from "../config";
+import { apiClient } from "../client";
 
 export interface ImportGitHubRepositoryRequest {
   url: string;
@@ -7,25 +7,12 @@ export interface ImportGitHubRepositoryRequest {
 
 export async function importGitHubRepository(
   request: ImportGitHubRepositoryRequest,
+  signal?: AbortSignal,
 ): Promise<Repository> {
-  const response = await fetch(
-    apiUrl("/api/v1/repositories/import/github"),
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(request),
-    },
+  const response = await apiClient.post<Repository>(
+    "/repositories/import/github",
+    request,
+    { signal, timeout: 300_000 },
   );
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => null);
-
-    throw new Error(
-      error?.detail ?? `GitHub import failed (${response.status})`,
-    );
-  }
-
-  return (await response.json()) as Repository;
+  return response.data;
 }

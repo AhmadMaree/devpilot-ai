@@ -8,6 +8,7 @@ import {
   registerRepository,
   startRepositoryIndexing,
 } from "../api/repositories";
+import { queryKeys } from "../api/queryKeys";
 import type {
   IndexingJob,
   Repository,
@@ -40,7 +41,7 @@ export function RepositoryIndexing({
   const [formError, setFormError] = useState<string | null>(null);
 
   const repositoriesQuery = useQuery({
-    queryKey: ["repositories"],
+    queryKey: queryKeys.repositories.all,
     queryFn: ({ signal }) => getRepositories(signal),
   });
   const repositories = useMemo(
@@ -64,7 +65,7 @@ export function RepositoryIndexing({
   const registerMutation = useMutation({
     mutationFn: () => registerRepository(name.trim(), path.trim()),
     onSuccess: async (repository) => {
-      await queryClient.invalidateQueries({ queryKey: ["repositories"] });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.repositories.all });
       onRepositoryChange(repository.id, repository.name);
       setName("");
       setPath("");
@@ -81,12 +82,12 @@ export function RepositoryIndexing({
   }
 
   async function handleImported(repository: Repository) {
-    queryClient.setQueryData<Repository[]>(["repositories"], (current = []) => [
+    queryClient.setQueryData<Repository[]>(queryKeys.repositories.all, (current = []) => [
       ...current.filter((item) => item.id !== repository.id),
       repository,
     ]);
     onRepositoryChange(repository.id, repository.name);
-    await queryClient.invalidateQueries({ queryKey: ["repositories"] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.repositories.all });
   }
 
   return (
@@ -203,23 +204,26 @@ interface GitHubImportFormProps {
 
 function GitHubImportForm({ onImported }: GitHubImportFormProps) {
   const [url, setUrl] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (pending) return;
-    setPending(true);
-    setError(null);
-    try {
-      const repository = await importGitHubRepository({ url: url.trim() });
+  const importMutation = useMutation({
+    mutationFn: ({
+      url: repositoryUrl,
+      signal,
+    }: {
+      url: string;
+      signal?: AbortSignal;
+    }) => signal
+      ? importGitHubRepository({ url: repositoryUrl }, signal)
+      : importGitHubRepository({ url: repositoryUrl }),
+    onSuccess: (repository) => {
       setUrl("");
       onImported(repository);
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "GitHub import failed.");
-    } finally {
-      setPending(false);
-    }
+    },
+  });
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (importMutation.isPending) return;
+    importMutation.mutate({ url: url.trim() });
   }
 
   return (
@@ -232,11 +236,13 @@ function GitHubImportForm({ onImported }: GitHubImportFormProps) {
         onChange={(event) => setUrl(event.target.value)}
         placeholder="https://github.com/owner/repository"
         required
-        disabled={pending}
+        disabled={importMutation.isPending}
       />
-      {error && <p className="repository-error" role="alert">{error}</p>}
-      <button type="submit" disabled={pending}>
-        {pending ? "Importing repository…" : "Import from GitHub"}
+      {importMutation.error && (
+        <p className="repository-error" role="alert">{importMutation.error.message}</p>
+      )}
+      <button type="submit" disabled={importMutation.isPending}>
+        {importMutation.isPending ? "Importing repository…" : "Import from GitHub"}
       </button>
     </form>
   );
@@ -251,19 +257,19 @@ interface RepositoryCardProps {
 function RepositoryCard({ repository, selected, onSelect }: RepositoryCardProps) {
   const queryClient = useQueryClient();
   const statusQuery = useQuery({
-    queryKey: ["repository-index-status", repository.id],
+    queryKey: queryKeys.indexing.status(repository.id),
     queryFn: ({ signal }) => getRepositoryIndexingStatus(repository.id, signal),
     refetchInterval: (query) => isActive(query.state.data) ? 2000 : false,
   });
   const metadataQuery = useQuery({
-    queryKey: ["repository-index-metadata", repository.id],
+    queryKey: queryKeys.indexing.metadata(repository.id),
     queryFn: ({ signal }) => getRepositoryIndexMetadata(repository.id, signal),
   });
   const indexMutation = useMutation({
     mutationFn: () => startRepositoryIndexing(repository.id),
     onSuccess: async (job) => {
       queryClient.setQueryData(
-        ["repository-index-status", repository.id],
+        queryKeys.indexing.status(repository.id),
         job,
       );
     },
@@ -275,7 +281,7 @@ function RepositoryCard({ repository, selected, onSelect }: RepositoryCardProps)
   useEffect(() => {
     if (job?.status === "completed") {
       void queryClient.invalidateQueries({
-        queryKey: ["repository-index-metadata", repository.id],
+        queryKey: queryKeys.indexing.metadata(repository.id),
       });
     }
   }, [job?.completed_at, job?.status, queryClient, repository.id]);

@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 
 import { runDevelopmentWorkflow } from "../api/workflow/api";
@@ -27,6 +28,19 @@ export function DevelopmentWorkflow({
   const [loading, setLoading] = useState(false);
 
   const controllerRef = useRef<AbortController | null>(null);
+  const workflowMutation = useMutation({
+    mutationFn: ({
+      request,
+      signal,
+    }: {
+      request: {
+        repository_id: string;
+        file_path: string;
+        instruction: string;
+      };
+      signal: AbortSignal;
+    }) => runDevelopmentWorkflow(request, signal),
+  });
 
   useEffect(() => {
     return () => {
@@ -52,14 +66,14 @@ export function DevelopmentWorkflow({
     setResult(null);
 
     try {
-      const response = await runDevelopmentWorkflow(
-        {
+      const response = await workflowMutation.mutateAsync({
+        request: {
           repository_id: repositoryId,
           file_path: filePath.trim(),
           instruction: instruction.trim(),
         },
-        controller.signal,
-      );
+        signal: controller.signal,
+      });
 
       if (!controller.signal.aborted) {
         setResult(response);

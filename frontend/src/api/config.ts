@@ -1,14 +1,13 @@
-const PRODUCTION_API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+const PRODUCTION_API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
 
-export function apiUrl(path: string): string {
+export function apiBaseUrl(): string {
   return import.meta.env.DEV
-    ? path
-    : `${PRODUCTION_API_BASE_URL}${path}`;
+    ? "/api/v1"
+    : `${PRODUCTION_API_BASE_URL.replace(/\/+$/, "")}/api/v1`;
 }
 
 export function healthUrl(): string {
   return import.meta.env.DEV
     ? "http://127.0.0.1:8000/health"
-    : apiUrl("/health");
+    : `${PRODUCTION_API_BASE_URL.replace(/\/+$/, "")}/health`;
 }

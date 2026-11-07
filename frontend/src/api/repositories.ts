@@ -3,36 +3,14 @@ import type {
   Repository,
   RepositoryIndexMetadata,
 } from "./types";
-import { apiUrl } from "./config";
-
-async function responseError(response: Response): Promise<Error> {
-  let message = `Request failed (${response.status})`;
-  try {
-    const body: unknown = await response.json();
-    if (
-      typeof body === "object" &&
-      body !== null &&
-      "detail" in body &&
-      typeof body.detail === "string"
-    ) {
-      message = body.detail;
-    }
-  } catch {
-    // Keep the HTTP status when the server does not return JSON.
-  }
-  return new Error(message);
-}
+import { apiClient } from "./client";
+import { ApiError } from "./errors";
 
 export async function getRepositories(
   signal?: AbortSignal,
 ): Promise<Repository[]> {
-  const response = await fetch(apiUrl("/api/v1/repositories"), {
-    signal,
-  });
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  return (await response.json()) as Repository[];
+  const response = await apiClient.get<Repository[]>("/repositories", { signal });
+  return response.data;
 }
 
 export async function registerRepository(
@@ -40,64 +18,58 @@ export async function registerRepository(
   path: string,
   signal?: AbortSignal,
 ): Promise<Repository> {
-  const response = await fetch(apiUrl("/api/v1/repositories"), {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name, path }),
-    signal,
-  });
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  return (await response.json()) as Repository;
+  const response = await apiClient.post<Repository>(
+    "/repositories",
+    { name, path },
+    { signal },
+  );
+  return response.data;
 }
 
 export async function startRepositoryIndexing(
   repositoryId: string,
   signal?: AbortSignal,
 ): Promise<IndexingJob> {
-  const response = await fetch(
-    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`),
-    { method: "POST", signal },
+  const response = await apiClient.post<IndexingJob>(
+    `/repositories/${encodeURIComponent(repositoryId)}/index`,
+    undefined,
+    { signal, timeout: 30_000 },
   );
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  return (await response.json()) as IndexingJob;
+  return response.data;
 }
 
 export async function getRepositoryIndexingStatus(
   repositoryId: string,
   signal?: AbortSignal,
 ): Promise<IndexingJob | null> {
-  const response = await fetch(
-    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index/status`),
-    { signal },
-  );
-  if (response.status === 404) {
-    return null;
+  try {
+    const response = await apiClient.get<IndexingJob>(
+      `/repositories/${encodeURIComponent(repositoryId)}/index/status`,
+      { signal },
+    );
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
   }
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  return (await response.json()) as IndexingJob;
 }
 
 export async function getRepositoryIndexMetadata(
   repositoryId: string,
   signal?: AbortSignal,
 ): Promise<RepositoryIndexMetadata | null> {
-  const response = await fetch(
-    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`),
-    { signal },
-  );
-  if (response.status === 404) {
-    return null;
+  try {
+    const response = await apiClient.get<RepositoryIndexMetadata>(
+      `/repositories/${encodeURIComponent(repositoryId)}/index`,
+      { signal },
+    );
+    return response.data;
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return null;
+    }
+    throw error;
   }
-  if (!response.ok) {
-    throw await responseError(response);
-  }
-  return (await response.json()) as RepositoryIndexMetadata;
 }

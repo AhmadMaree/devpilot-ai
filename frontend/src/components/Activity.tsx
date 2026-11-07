@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-query";
 
 import { getInvestigationHistory } from "../api/api";
+import { queryKeys } from "../api/queryKeys";
 import { getRepositories } from "../api/repositories";
 import { getPatchProposals } from "../api/patches/api";
 import {
@@ -49,15 +50,15 @@ export function Activity({
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("all");
   const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null);
   const historyQuery = useQuery({
-    queryKey: ["investigation-history"],
+    queryKey: queryKeys.investigations.all,
     queryFn: ({ signal }) => getInvestigationHistory(signal),
   });
   const repositoriesQuery = useQuery({
-    queryKey: ["repositories"],
+    queryKey: queryKeys.repositories.all,
     queryFn: ({ signal }) => getRepositories(signal),
   });
   const workflowsQuery = useInfiniteQuery({
-    queryKey: ["development-workflows", repositoryId],
+    queryKey: queryKeys.workflows.byRepository(repositoryId),
     queryFn: ({ pageParam, signal }) =>
       getDevelopmentWorkflows(repositoryId, pageParam, signal),
     initialPageParam: 0,
@@ -66,7 +67,7 @@ export function Activity({
     enabled: Boolean(repositoryId),
   });
   const proposalsQuery = useInfiniteQuery({
-    queryKey: ["patch-proposals", repositoryId],
+    queryKey: queryKeys.proposals.byRepository(repositoryId),
     queryFn: ({ pageParam, signal }) =>
       getPatchProposals(repositoryId, pageParam, signal),
     initialPageParam: 0,
@@ -75,7 +76,7 @@ export function Activity({
     enabled: Boolean(repositoryId),
   });
   const workflowDetailQuery = useQuery({
-    queryKey: ["development-workflow", selectedWorkflowId],
+    queryKey: queryKeys.workflows.detail(selectedWorkflowId ?? ""),
     queryFn: ({ signal }) => getDevelopmentWorkflow(selectedWorkflowId!, signal),
     enabled: Boolean(selectedWorkflowId),
   });

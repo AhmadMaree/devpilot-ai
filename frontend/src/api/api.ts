@@ -1,95 +1,49 @@
-
+import { apiClient } from "./client";
 import type {
-    HealthResponse,
-    InvestigationRequest,
-    InvestigationSummary,
-    SavedInvestigation,
-} from "./types"
-import { apiUrl, healthUrl } from "./config";
+  HealthResponse,
+  InvestigationRequest,
+  InvestigationSummary,
+  SavedInvestigation,
+} from "./types";
+import { healthUrl } from "./config";
 
-export const getHealth = async(): Promise<HealthResponse> => {
-    const response = await fetch(
-        healthUrl()
-    );
-
-    if(!response.ok) {
-        throw new Error(`Health check failed with status: ${response.status}`)
-    }
-
-    return (await(response.json())) as HealthResponse
+export async function getHealth(signal?: AbortSignal): Promise<HealthResponse> {
+  const response = await apiClient.get<HealthResponse>(healthUrl(), {
+    signal,
+    timeout: 5_000,
+  });
+  return response.data;
 }
 
-export const get_investigation = async(
-    request: InvestigationRequest,
-    signal: AbortSignal
-): Promise<SavedInvestigation> =>
-{
-    const response = await fetch(
-        apiUrl("/api/v1/agents/investigate"),
-        {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(request),
-        signal,
-        },
-    );
-
-    if (!response.ok) {
-        let message = `Request failed (${response.status})`;
-
-        try {
-        const error: unknown = await response.json();
-
-        if (
-            typeof error === "object" &&
-            error !== null &&
-            "detail" in error &&
-            typeof error.detail === "string"
-        ) {
-            message = error.detail;
-        }
-        } catch {
-        // Preserve the HTTP error if the body is not JSON.
-        }
-        throw new Error(message);
-    }
-
-    return (await response.json()) as SavedInvestigation;
-}
-
-
-export const getInvestigationHistory = async(
+export async function get_investigation(
+  request: InvestigationRequest,
   signal?: AbortSignal,
-): Promise<InvestigationSummary[]> => {
-    const response = await fetch(
-        apiUrl("/api/v1/agents/investigations"),
-        { signal },
-    );
-
-    if (!response.ok) {
-        throw new Error(
-        `Failed to load history (${response.status})`,
-        );
-    }
-
-    return (await response.json()) as InvestigationSummary[];
+): Promise<SavedInvestigation> {
+  const response = await apiClient.post<SavedInvestigation>(
+    "/agents/investigate",
+    request,
+    { signal, timeout: 180_000 },
+  );
+  return response.data;
 }
 
+export async function getInvestigationHistory(
+  signal?: AbortSignal,
+): Promise<InvestigationSummary[]> {
+  const response = await apiClient.get<InvestigationSummary[]>(
+    "/agents/investigations",
+    { signal },
+  );
+  return response.data;
+}
 
-export const getSavedInvestigation = async(
+export async function getSavedInvestigation(
   id: string,
-): Promise<SavedInvestigation> => {
-    const response = await fetch(
-        apiUrl(`/api/v1/agents/investigations/${encodeURIComponent(id)}`),
-    );
-
-    if (!response.ok) {
-        throw new Error(
-        `Failed to load investigation (${response.status})`,
-        );
-    }
-
-    return (await response.json()) as SavedInvestigation;
+  signal?: AbortSignal,
+): Promise<SavedInvestigation> {
+  const response = await apiClient.get<SavedInvestigation>(
+    `/agents/investigations/${encodeURIComponent(id)}`,
+    { signal },
+  );
+  return response.data;
 }

@@ -1,0 +1,64 @@
+.patch-diff {
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-code-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+
+.patch-diff:focus-visible {
+  outline: 3px solid var(--color-diff-focus);
+  outline-offset: 2px;
+}
+
+.patch-diff pre {
+  min-width: max-content;
+  margin: 0;
+}
+
+.patch-diff-line {
+  display: grid;
+  grid-template-columns: 48px max-content;
+  min-height: 21px;
+  white-space: pre;
+}
+
+.patch-diff-line > span:last-child {
+  padding: 1px 14px;
+}
+
+.patch-diff-line-number {
+  padding: 1px 9px;
+  border-right: 1px solid var(--color-diff-gutter-border);
+  color: var(--color-diff-line-number);
+  text-align: right;
+  user-select: none;
+}
+
+.diff-added {
+  background: var(--color-success-background);
+  color: var(--color-success-strong);
+}
+
+.diff-removed {
+  background: var(--color-error-background);
+  color: var(--color-error-strong);
+}
+
+.diff-header {
+  background: var(--color-diff-header-background);
+  color: var(--color-diff-header-text);
+}
+
+.diff-hunk {
+  background: var(--color-info-background);
+  color: var(--color-info);
+}
+
+.diff-context {
+  background: var(--color-surface);
+}
