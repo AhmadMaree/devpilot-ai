@@ -5,13 +5,11 @@ import type {
     InvestigationSummary,
     SavedInvestigation,
 } from "./types"
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { apiUrl, healthUrl } from "./config";
 
 export const getHealth = async(): Promise<HealthResponse> => {
     const response = await fetch(
-        `${API_BASE_URL}/health`
+        healthUrl()
     );
 
     if(!response.ok) {
@@ -27,7 +25,7 @@ export const get_investigation = async(
 ): Promise<SavedInvestigation> =>
 {
     const response = await fetch(
-        `${API_BASE_URL}/api/v1/agents/investigate`,
+        apiUrl("/api/v1/agents/investigate"),
         {
         method: "POST",
         headers: {
@@ -66,7 +64,7 @@ export const getInvestigationHistory = async(
   signal?: AbortSignal,
 ): Promise<InvestigationSummary[]> => {
     const response = await fetch(
-        `${API_BASE_URL}/api/v1/agents/investigations`,
+        apiUrl("/api/v1/agents/investigations"),
         { signal },
     );
 
@@ -84,7 +82,7 @@ export const getSavedInvestigation = async(
   id: string,
 ): Promise<SavedInvestigation> => {
     const response = await fetch(
-        `${API_BASE_URL}/api/v1/agents/investigations/${encodeURIComponent(id)}`,
+        apiUrl(`/api/v1/agents/investigations/${encodeURIComponent(id)}`),
     );
 
     if (!response.ok) {

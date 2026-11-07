@@ -3,9 +3,7 @@ import type {
   Repository,
   RepositoryIndexMetadata,
 } from "./types";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { apiUrl } from "./config";
 
 async function responseError(response: Response): Promise<Error> {
   let message = `Request failed (${response.status})`;
@@ -28,7 +26,7 @@ async function responseError(response: Response): Promise<Error> {
 export async function getRepositories(
   signal?: AbortSignal,
 ): Promise<Repository[]> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/repositories`, {
+  const response = await fetch(apiUrl("/api/v1/repositories"), {
     signal,
   });
   if (!response.ok) {
@@ -42,7 +40,7 @@ export async function registerRepository(
   path: string,
   signal?: AbortSignal,
 ): Promise<Repository> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/repositories`, {
+  const response = await fetch(apiUrl("/api/v1/repositories"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -61,7 +59,7 @@ export async function startRepositoryIndexing(
   signal?: AbortSignal,
 ): Promise<IndexingJob> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`,
+    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`),
     { method: "POST", signal },
   );
   if (!response.ok) {
@@ -75,7 +73,7 @@ export async function getRepositoryIndexingStatus(
   signal?: AbortSignal,
 ): Promise<IndexingJob | null> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/repositories/${encodeURIComponent(repositoryId)}/index/status`,
+    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index/status`),
     { signal },
   );
   if (response.status === 404) {
@@ -92,7 +90,7 @@ export async function getRepositoryIndexMetadata(
   signal?: AbortSignal,
 ): Promise<RepositoryIndexMetadata | null> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`,
+    apiUrl(`/api/v1/repositories/${encodeURIComponent(repositoryId)}/index`),
     { signal },
   );
   if (response.status === 404) {

@@ -4,16 +4,14 @@ import type {
   DevelopmentWorkflowResponse,
   DevelopmentWorkflowSummary,
 } from "./types";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { apiUrl } from "../config";
 
 export async function runDevelopmentWorkflow(
   request: DevelopmentWorkflowRequest,
   signal?: AbortSignal,
 ): Promise<DevelopmentWorkflowResponse> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/development/workflows`,
+    apiUrl("/api/v1/development/workflows"),
     {
       method: "POST",
       headers: {
@@ -42,7 +40,7 @@ export async function getDevelopmentWorkflows(
     offset: String(offset),
   });
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/development/workflows?${params.toString()}`,
+    apiUrl(`/api/v1/development/workflows?${params.toString()}`),
     { signal },
   );
 
@@ -58,7 +56,7 @@ export async function getDevelopmentWorkflow(
   signal?: AbortSignal,
 ): Promise<DevelopmentWorkflowDetail> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/development/workflows/${encodeURIComponent(workflowId)}`,
+    apiUrl(`/api/v1/development/workflows/${encodeURIComponent(workflowId)}`),
     { signal },
   );
 

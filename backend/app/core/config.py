@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import SecretStr
 from app.llm.models import LLMSelection
 from pathlib import Path
 
@@ -27,6 +28,9 @@ class Settings(BaseSettings):
     # Storage
     data_dir: Path = BACKEND_ROOT / "data"
     database_filename: str = "devpilot.db"
+
+    #apikey
+    local_api_key: SecretStr = SecretStr("")
 
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"

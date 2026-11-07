@@ -1,7 +1,5 @@
 import type { Repository } from "../types";
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+import { apiUrl } from "../config";
 
 export interface ImportGitHubRepositoryRequest {
   url: string;
@@ -11,7 +9,7 @@ export async function importGitHubRepository(
   request: ImportGitHubRepositoryRequest,
 ): Promise<Repository> {
   const response = await fetch(
-    `${API_BASE_URL}/api/v1/repositories/import/github`,
+    apiUrl("/api/v1/repositories/import/github"),
     {
       method: "POST",
       headers: {

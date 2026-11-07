@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from app.core.security import require_api_key
 
 from app.api.repositories import router as repositories_router
 from app.repositories.index_job_manager import RepositoryIndexJobManager
@@ -14,6 +15,7 @@ from .api.questions import router as questions_router
 from .api.development import router as development_router
 from .api.routes import router
 from .core import get_settings
+
 
 
 def create_app() -> FastAPI:
@@ -38,19 +40,24 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[settings.frontend_origin],
-        allow_headers=["Content-Type"],
+        allow_headers=["Content-Type", "X-API-Key"],
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_credentials=False,
     )
 
+    #Public route
     app.include_router(router)
-    app.include_router(ingestion_router)
-    app.include_router(questions_router)
-    app.include_router(agent_router)
-    app.include_router(patches_router)
-    app.include_router(llm_router)
-    app.include_router(repositories_router)
-    app.include_router(development_router)
+
+    #Protected route
+    protected = [Depends(require_api_key)]
+
+    app.include_router(ingestion_router, dependencies=protected)
+    app.include_router(questions_router, dependencies=protected)
+    app.include_router(agent_router, dependencies=protected)
+    app.include_router(patches_router, dependencies=protected)
+    app.include_router(llm_router, dependencies=protected)
+    app.include_router(repositories_router, dependencies=protected)
+    app.include_router(development_router, dependencies=protected)
 
     return app
 
