@@ -6,10 +6,12 @@ from azure.core.exceptions import HttpResponseError
 from fastapi import APIRouter, HTTPException
 
 from app.core import get_settings
-from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.embeddings.factory import (
+    create_embedding_provider,
+    get_embedding_provider_name
+)
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
-from app.llm.store import LLMSelectionStore
 from app.rag.models import QuestionRequest, QuestionsAnswer
 from app.rag.service import RAGServices
 from app.repositories.index_service import (
@@ -22,6 +24,7 @@ from app.retrieval.factory import (
     get_active_index_version,
     get_retrieval_backend,
 )
+from app.llm.selection import get_effective_llm_selection
 
 router = APIRouter(prefix="/api/v1", tags=["Questions"])
 
@@ -33,6 +36,7 @@ def get_rag_services(
     model: str,
     index_version: str,
     retrieval_backend: str,
+    embedding_provider: str,
 ) -> RAGServices:
     selection = LLMSelection(
         provider=provider,
@@ -44,7 +48,7 @@ def get_rag_services(
             repository_id=repository_id,
             backend=retrieval_backend,
         ),
-        embeddings=OllamaEmbeddingProvider(),
+        embeddings=create_embedding_provider(),
         chat=LLMProviderFactory(selection).create_text_provider(),
         index_version=index_version,
     )
@@ -70,7 +74,7 @@ def ask_question(
         RepositoryStore(),
     )
 
-    selection = LLMSelectionStore().get(fallback=settings.llm_selection)
+    selection = get_effective_llm_selection()
 
     try:
         retrieval_backend = get_retrieval_backend()
@@ -82,6 +86,7 @@ def ask_question(
             model=selection.model,
             index_version=active_version,
             retrieval_backend=retrieval_backend,
+            embedding_provider=get_embedding_provider_name(),
         ).answer(
             repository_id=str(repository.id),
             question=request.question,

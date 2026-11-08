@@ -11,6 +11,7 @@ from app.retrieval.search import (
     LocalRepositorySearch,
     RepositorySearch,
 )
+from app.embeddings.factory import get_embedding_model_identity
 
 
 def get_retrieval_backend() -> str:
@@ -28,6 +29,15 @@ def get_active_index_version(repository_id: UUID, backend: str = "local") -> str
     if metadata is None or not metadata.index_version:
         raise RepositoryIndexNotFoundError(
             f"Repository {repository_id} has no active index"
+        )
+    expected_embedding_model = get_embedding_model_identity()
+
+    if metadata.embedding_model != expected_embedding_model:
+        raise RepositoryIndexNotFoundError(
+            "The active repository index was generated using a "
+            "different or unknown embedding model. "
+            "Reindex the repository with the currently configured "
+            "embedding provider."
         )
 
     if backend == "azure" and not metadata.azure_ready:

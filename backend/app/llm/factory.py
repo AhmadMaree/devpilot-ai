@@ -4,6 +4,10 @@ from app.llm.gemini_provider import GeminiPatchProvider, GeminiProvider
 from app.llm.models import LLMProviderType, LLMSelection
 from app.patches.ollama_provider import OllamaPatchProvider
 from app.rag.ollama import OllamaChatProvider
+from app.llm.azure_provider import (
+    AzureChatProvider,
+    AzurePatchProvider,
+)
 
 
 class ProviderNotConfiguredError(ValueError):
@@ -15,10 +19,14 @@ class LLMProviderFactory:
     selection: LLMSelection
 
     def create_text_provider(self):
-        if self.selection.provider.lower() == LLMProviderType.OLLAMA:
+        provider = self.selection.provider
+
+        if provider.lower() == LLMProviderType.OLLAMA:
             return OllamaChatProvider(model=self.selection.model)
-        if self.selection.provider == LLMProviderType.GEMINI:
+        if provider == LLMProviderType.GEMINI:
             return GeminiProvider(model=self.selection.model)
+        if provider == LLMProviderType.OPENAI:
+            return AzureChatProvider(model=self.selection.model)
 
         raise ProviderNotConfiguredError(
             f"Text generation provider "
@@ -26,11 +34,16 @@ class LLMProviderFactory:
         )
 
     def create_patch_provider(self):
-        if self.selection.provider == LLMProviderType.OLLAMA:
+        provider = self.selection.provider
+
+        if provider == LLMProviderType.OLLAMA:
             return OllamaPatchProvider(model=self.selection.model)
 
-        if self.selection.provider == LLMProviderType.GEMINI:
+        if provider == LLMProviderType.GEMINI:
             return GeminiPatchProvider(model=self.selection.model)
+
+        if provider == LLMProviderType.OPENAI:
+            return AzurePatchProvider(model=self.selection.model)
 
         raise ProviderNotConfiguredError(
             f"Patch generation provider "

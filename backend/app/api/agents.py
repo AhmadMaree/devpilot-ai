@@ -20,7 +20,7 @@ from app.core import get_settings
 from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
-from app.llm.store import LLMSelectionStore
+from app.llm.selection import get_effective_llm_selection
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
 )
@@ -30,6 +30,10 @@ from app.retrieval.factory import (
     create_repository_search,
     get_active_index_version,
     get_retrieval_backend,
+)
+from app.embeddings.factory import (
+    create_embedding_provider,
+    get_embedding_provider_name,
 )
 from app.storage.investigations import InvestigationStore
 
@@ -44,13 +48,14 @@ def get_investigation_graph(
     model: str,
     index_version: str,
     retrieval_backend: str,
+    embedding_provider: str,
 ):
     retriever = RepositoryRetriever(
         index=create_repository_search(
             repository_id=repository_id,
             backend=retrieval_backend,
         ),
-        embeddings=OllamaEmbeddingProvider(),
+        embeddings=create_embedding_provider(),
         index_version=index_version,
     )
 
@@ -91,7 +96,7 @@ def investigate(
         RepositoryStore(),
     )
 
-    selection = LLMSelectionStore().get(fallback=settings.llm_selection)
+    selection = get_effective_llm_selection()
     try:
         retrieval_backend = get_retrieval_backend()
         active_version = get_active_index_version(repository.id, retrieval_backend)
@@ -101,6 +106,7 @@ def investigate(
             model=selection.model,
             index_version=active_version,
             retrieval_backend=retrieval_backend,
+            embedding_provider=get_embedding_provider_name()
         )
 
         result = graph.invoke(

@@ -11,7 +11,8 @@ from uuid import UUID
 import httpx
 
 from app.core import get_settings
-from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.embeddings.base import EmbeddingProvider
+from app.embeddings.factory import create_embedding_provider
 from app.repositories.index_jobs import (
     IndexingCancelledError,
     IndexingJob,
@@ -43,8 +44,8 @@ class RepositoryIndexJobManager:
         self,
         db_path: Path | str | None = None,
         index_function: IndexFunction = index_repository,
-        embeddings_factory: Callable[[], OllamaEmbeddingProvider] = (
-            OllamaEmbeddingProvider
+        embeddings_factory: Callable[[], EmbeddingProvider] = (
+            create_embedding_provider
         ),
     ):
         self.db_path = Path(

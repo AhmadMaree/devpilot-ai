@@ -55,6 +55,14 @@ def list_providers(
             "name": "Google Gemini",
             "available": bool(settings.gemini_api_key),
         },
+        {
+            "id": "openai",
+            "name": "Azure OpenAI",
+            "available": bool(
+                settings.azure_openai_endpoint
+                and settings.azure_openai_api_key.get_secret_value()
+            ),
+        },
     ]
 
 
@@ -94,6 +102,13 @@ def list_models(
         return [
             {"name": name, "size": None}
             for name in sorted(get_available_gemini_models())
+        ]
+    elif provider == LLMProviderType.OPENAI:
+        return [
+            {
+                "name": settings.azure_openai_chat_deployment,
+                "size": None,
+            }
         ]
     else:
         raise HTTPException(
@@ -138,6 +153,8 @@ def update_selection(
             ) from None
     elif selection.provider == LLMProviderType.GEMINI:
         available_models = get_available_gemini_models()
+    elif selection.provider == LLMProviderType.OPENAI:
+        available_models = {settings.azure_openai_chat_deployment}
     else:
         raise HTTPException(
             status_code=422,
@@ -147,7 +164,7 @@ def update_selection(
     if selection.model not in available_models:
         raise HTTPException(
             status_code=422,
-            detail="Selected model is not installed in Ollama",
+            detail=f"Selected model is not available for this {selection.provider}",
         )
 
     store.save(selection)

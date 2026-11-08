@@ -16,6 +16,7 @@ class RepositoryIndexMetadata(BaseModel):
     indexed_at: datetime
     index_version: str | None = None
     azure_ready: bool = False
+    embedding_model: str | None = None
 
 
 class RepositoryIndexStore:
@@ -68,12 +69,21 @@ class RepositoryIndexStore:
                     """
                 )
 
+            if "embedding_model" not in columns:
+                conn.execute(
+                    """
+                    ALTER TABLE repository_indexes
+                    ADD COLUMN embedding_model TEXT
+                    """
+                )
+
     def save(
         self,
         repository_id: UUID,
         commit_sha: str,
         index_version: str | None = None,
         azure_ready: bool = False,
+        embedding_model: str | None = None,
     ) -> RepositoryIndexMetadata:
         self.initialize()
 
@@ -83,20 +93,22 @@ class RepositoryIndexStore:
             indexed_at=datetime.now(UTC),
             index_version=index_version,
             azure_ready=azure_ready,
+            embedding_model=embedding_model
         )
 
         with closing(self._connect()) as conn, conn:
             conn.execute(
                 """
                 INSERT INTO repository_indexes (
-                    repository_id, commit_sha, indexed_at, index_version, azure_ready
-                ) VALUES (?, ?, ?, ?, ?)
+                    repository_id, commit_sha, indexed_at, index_version, azure_ready,embedding_model
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(repository_id)
                 DO UPDATE SET
                     commit_sha = excluded.commit_sha,
                     indexed_at = excluded.indexed_at,
-                    index_version = excluded.index_version
-                    azure_ready = excluded.azure_ready
+                    index_version = excluded.index_version,
+                    azure_ready = excluded.azure_ready,
+                    embedding_model= excluded.embedding_model
                 """,
                 (
                     str(metadata.repository_id),
@@ -104,6 +116,7 @@ class RepositoryIndexStore:
                     metadata.indexed_at.isoformat(),
                     metadata.index_version,
                     int(metadata.azure_ready),
+                    metadata.embedding_model,
                 ),
             )
 
@@ -117,6 +130,7 @@ class RepositoryIndexStore:
         job_id: UUID,
         total_chunks: int,
         azure_ready: bool = False,
+        embedding_model: str | None = None,
     ) -> RepositoryIndexMetadata:
         self.initialize()
         metadata = RepositoryIndexMetadata(
@@ -125,20 +139,22 @@ class RepositoryIndexStore:
             indexed_at=datetime.now(UTC),
             index_version=index_version,
             azure_ready=azure_ready,
+            embedding_model= embedding_model,
         )
 
         with closing(self._connect()) as conn, conn:
             pointer_cursor = conn.execute(
                 """
                 INSERT INTO repository_indexes (
-                    repository_id, commit_sha, indexed_at, index_version, azure_ready
-                ) VALUES (?, ?, ?, ?, ?)
+                    repository_id, commit_sha, indexed_at, index_version, azure_ready, embedding_model
+                ) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(repository_id)
                 DO UPDATE SET
                     commit_sha = excluded.commit_sha,
                     indexed_at = excluded.indexed_at,
-                    index_version = excluded.index_version
-                    azure_ready= excluded.azure_ready
+                    index_version = excluded.index_version,
+                    azure_ready = excluded.azure_ready,
+                    embedding_model= excluded.embedding_model
                 """,
                 (
                     str(repository_id),
@@ -146,6 +162,7 @@ class RepositoryIndexStore:
                     metadata.indexed_at.isoformat(),
                     index_version,
                     int(metadata.azure_ready),
+                    metadata.embedding_model
                 ),
             )
             if pointer_cursor.rowcount != 1:
@@ -185,7 +202,7 @@ class RepositoryIndexStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT repository_id, commit_sha, indexed_at, index_version, azure_ready
+                SELECT repository_id, commit_sha, indexed_at, index_version, azure_ready, embedding_model
                 FROM repository_indexes
                 WHERE repository_id = ?
                 """,
