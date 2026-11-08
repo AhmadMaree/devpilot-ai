@@ -2,7 +2,8 @@ from typing import Protocol
 
 from app.rag.models import Citations, QuestionsAnswer
 from app.rag.prompts import build_user_propmt
-from app.retrieval.local_index import LocalVectorIndex, SearchResult
+from app.retrieval.local_index import SearchResult
+from app.retrieval.search import RepositorySearch
 
 
 class EmbeddingProvider(Protocol):
@@ -17,11 +18,16 @@ class ChatProvider(Protocol):
 
 class RAGServices:
     def __init__(
-        self, index: LocalVectorIndex, embeddings: EmbeddingProvider, chat: ChatProvider
+        self,
+        index: RepositorySearch,
+        embeddings: EmbeddingProvider,
+        chat: ChatProvider,
+        index_version: str,
     ):
         self.index = index
         self.embeddings = embeddings
         self.chat = chat
+        self.index_version = index_version
 
     def answer(
         self, repository_id: str, question: str, top_k: int = 5
@@ -39,8 +45,12 @@ class RAGServices:
         if len(vectors) != 1 or not vectors[0]:
             raise ValueError("Invalid query embedding")
 
-        results = self.index.serach(
-            query_search=vectors[0], limit=top_k, repo_id=repository_id
+        results = self.index.search(
+            query_text=question,
+            query_vector=vectors[0],
+            limit=top_k,
+            repository_id=repository_id,
+            index_version=self.index_version,
         )
 
         final_results: list[SearchResult] = []

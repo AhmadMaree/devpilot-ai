@@ -10,6 +10,8 @@ dependencies = [
     "httpx>=0.27,<1",
     "langgraph>=0.2,<2",
     "google-genai>=2.34,<3",
+    "azure-search-documents>=11.6,<12",
+    "azure-identity>=1.19,<2",
 ]
 
 

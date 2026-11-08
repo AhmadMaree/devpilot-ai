@@ -15,6 +15,7 @@ class RepositoryIndexMetadata(BaseModel):
     commit_sha: str
     indexed_at: datetime
     index_version: str | None = None
+    azure_ready: bool = False
 
 
 class RepositoryIndexStore:
@@ -59,11 +60,20 @@ class RepositoryIndexStore:
                     "ALTER TABLE repository_indexes ADD COLUMN index_version TEXT"
                 )
 
+            if "azure_ready" not in columns:
+                conn.execute(
+                    """
+                    ALTER TABLE repository_indexes
+                    ADD COLUMN azure_ready INTEGER NOT NULL DEFAULT 0
+                    """
+                )
+
     def save(
         self,
         repository_id: UUID,
         commit_sha: str,
         index_version: str | None = None,
+        azure_ready: bool = False,
     ) -> RepositoryIndexMetadata:
         self.initialize()
 
@@ -72,25 +82,28 @@ class RepositoryIndexStore:
             commit_sha=commit_sha,
             indexed_at=datetime.now(UTC),
             index_version=index_version,
+            azure_ready=azure_ready,
         )
 
         with closing(self._connect()) as conn, conn:
             conn.execute(
                 """
                 INSERT INTO repository_indexes (
-                    repository_id, commit_sha, indexed_at, index_version
-                ) VALUES (?, ?, ?, ?)
+                    repository_id, commit_sha, indexed_at, index_version, azure_ready
+                ) VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(repository_id)
                 DO UPDATE SET
                     commit_sha = excluded.commit_sha,
                     indexed_at = excluded.indexed_at,
                     index_version = excluded.index_version
+                    azure_ready = excluded.azure_ready
                 """,
                 (
                     str(metadata.repository_id),
                     metadata.commit_sha,
                     metadata.indexed_at.isoformat(),
                     metadata.index_version,
+                    int(metadata.azure_ready),
                 ),
             )
 
@@ -103,6 +116,7 @@ class RepositoryIndexStore:
         index_version: str,
         job_id: UUID,
         total_chunks: int,
+        azure_ready: bool = False,
     ) -> RepositoryIndexMetadata:
         self.initialize()
         metadata = RepositoryIndexMetadata(
@@ -110,25 +124,28 @@ class RepositoryIndexStore:
             commit_sha=commit_sha,
             indexed_at=datetime.now(UTC),
             index_version=index_version,
+            azure_ready=azure_ready,
         )
 
         with closing(self._connect()) as conn, conn:
             pointer_cursor = conn.execute(
                 """
                 INSERT INTO repository_indexes (
-                    repository_id, commit_sha, indexed_at, index_version
-                ) VALUES (?, ?, ?, ?)
+                    repository_id, commit_sha, indexed_at, index_version, azure_ready
+                ) VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(repository_id)
                 DO UPDATE SET
                     commit_sha = excluded.commit_sha,
                     indexed_at = excluded.indexed_at,
                     index_version = excluded.index_version
+                    azure_ready= excluded.azure_ready
                 """,
                 (
                     str(repository_id),
                     commit_sha,
                     metadata.indexed_at.isoformat(),
                     index_version,
+                    int(metadata.azure_ready),
                 ),
             )
             if pointer_cursor.rowcount != 1:
@@ -168,7 +185,7 @@ class RepositoryIndexStore:
         with closing(self._connect()) as conn:
             row = conn.execute(
                 """
-                SELECT repository_id, commit_sha, indexed_at, index_version
+                SELECT repository_id, commit_sha, indexed_at, index_version, azure_ready
                 FROM repository_indexes
                 WHERE repository_id = ?
                 """,

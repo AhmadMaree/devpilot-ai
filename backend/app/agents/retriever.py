@@ -1,11 +1,18 @@
 from app.embeddings.ollama import OllamaEmbeddingProvider
-from app.retrieval.local_index import LocalVectorIndex, SearchResult
+from app.retrieval.local_index import SearchResult
+from app.retrieval.search import RepositorySearch
 
 
 class RepositoryRetriever:
-    def __init__(self, index: LocalVectorIndex, embeddings: OllamaEmbeddingProvider):
+    def __init__(
+        self,
+        index: RepositorySearch,
+        embeddings: OllamaEmbeddingProvider,
+        index_version: str,
+    ):
         self.index = index
         self.embeddings = embeddings
+        self.index_version = index_version
 
     def search(
         self,
@@ -19,8 +26,12 @@ class RepositoryRetriever:
         if len(vector) != 1 or not vector[0]:
             raise ValueError("Invalid query embedding")
 
-        results = self.index.serach(
-            query_search=vector[0], limit=limit, repo_id=repository_id
+        results = self.index.search(
+            query_text=question,
+            query_vector=vector[0],
+            limit=limit,
+            repository_id=repository_id,
+            index_version=self.index_version,
         )
 
         selected = []

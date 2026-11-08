@@ -1,4 +1,5 @@
 import logging
+import os
 import sqlite3
 import threading
 from collections.abc import Callable
@@ -24,6 +25,7 @@ from app.repositories.indexer import (
     index_repository,
 )
 from app.repositories.store import RepositoryStore
+from app.retrieval.azure_index import AzureSearchIndex
 from app.utils.helper import RepositoryHasUncommittedChangesError
 
 logger = logging.getLogger(__name__)
@@ -120,6 +122,14 @@ class RepositoryIndexJobManager:
             self.store.update_progress(job.job_id, phase, processed, total)
 
         try:
+            azure_enabled = (
+                os.getenv("AZURE_SEARCH_INDEXING_ENABLED", "false").strip().lower()
+                == "true"
+            )
+            index_kwargs: dict = {}
+            if azure_enabled:
+                index_kwargs["azure_index"] = AzureSearchIndex()
+
             self.index_function(
                 repository_id=job.repository_id,
                 repository_store=RepositoryStore(self.db_path),
@@ -128,6 +138,7 @@ class RepositoryIndexJobManager:
                 progress=report_progress,
                 job_id=job.job_id,
                 cancel_event=cancel_event,
+                **index_kwargs,
             )
         except IndexJobStateChangedError:
             return
