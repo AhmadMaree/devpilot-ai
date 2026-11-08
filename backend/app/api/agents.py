@@ -3,6 +3,7 @@ from functools import lru_cache
 from uuid import UUID
 
 import httpx
+from azure.core.exceptions import HttpResponseError
 from fastapi import APIRouter, Depends, HTTPException
 from google.genai import errors as gemini_errors
 
@@ -20,14 +21,16 @@ from app.embeddings.ollama import OllamaEmbeddingProvider
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
 from app.llm.store import LLMSelectionStore
-from app.repositories.index_paths import get_repository_index_path
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
-    load_repository_index,
 )
-from app.repositories.index_store import RepositoryIndexStore
 from app.repositories.resolver import resolve_registered_repository
 from app.repositories.store import RepositoryStore
+from app.retrieval.factory import (
+    create_repository_search,
+    get_active_index_version,
+    get_retrieval_backend,
+)
 from app.storage.investigations import InvestigationStore
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
@@ -39,13 +42,16 @@ def get_investigation_graph(
     repository_id: UUID,
     provider: str,
     model: str,
-    index_version: int,
+    index_version: str,
+    retrieval_backend: str,
 ):
-    index = load_repository_index(repository_id)
-
     retriever = RepositoryRetriever(
-        index=index,
+        index=create_repository_search(
+            repository_id=repository_id,
+            backend=retrieval_backend,
+        ),
         embeddings=OllamaEmbeddingProvider(),
+        index_version=index_version,
     )
 
     selection = LLMSelection(
@@ -86,25 +92,15 @@ def investigate(
     )
 
     selection = LLMSelectionStore().get(fallback=settings.llm_selection)
-
-    index_metadata = RepositoryIndexStore().get(repository.id)
-    index_path = get_repository_index_path(
-        repository.id,
-        index_metadata.index_version if index_metadata is not None else None,
-    )
-
-    if not index_path.is_file():
-        raise HTTPException(
-            status_code=409,
-            detail="Repository has not been indexed",
-        )
-
     try:
+        retrieval_backend = get_retrieval_backend()
+        active_version = get_active_index_version(repository.id, retrieval_backend)
         graph = get_investigation_graph(
             repository_id=repository.id,
             provider=selection.provider.value,
             model=selection.model,
-            index_version=index_path.stat().st_mtime_ns,
+            index_version=active_version,
+            retrieval_backend=retrieval_backend,
         )
 
         result = graph.invoke(
@@ -146,6 +142,12 @@ def investigate(
         raise HTTPException(
             status_code=503,
             detail="Gemini AI service request failed",
+        ) from None
+
+    except HttpResponseError:
+        raise HTTPException(
+            status_code=503,
+            detail="Azure AI Search is unavailable",
         ) from None
 
     except (OSError, ValueError, KeyError):
