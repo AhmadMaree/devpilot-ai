@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 from uuid import UUID
 
@@ -8,13 +9,21 @@ from pydantic import BaseModel
 
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
 from app.patches.generation import GeneratePatchRequest, generate_patch
 from app.patches.preview import preview_patch
 from app.patches.service import apply_approved_patch
-from app.patches.store import PatchProposal, PatchProposalStore
+from app.patches.models import PatchProposal
+from app.patches.postgres_store import PostgresPatchProposalStore
 from app.repositories.resolver import resolve_registered_repository
-from app.repositories.store import RepositoryStore
+from app.repositories.postgres_store import PostgresRepositoryStore
+from app.repositories.checkout import (
+    ensure_repository_checkout,
+    RepositoryCheckoutUnavailableError,
+)
+from app.storage.repository_snapshots import (
+    AzureRepositorySnapshotStore,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +52,10 @@ class PatchProposalSummary(BaseModel):
     created_at: str
 
 
-def get_patch_store() -> PatchProposalStore:
+def get_patch_store() -> PostgresPatchProposalStore:
     require_local_environment()
 
-    store = PatchProposalStore()
+    store = PostgresPatchProposalStore()
     store.initialize()
     return store
 
@@ -61,14 +70,19 @@ def require_local_environment() -> None:
 
 def get_repository_root(repository_id: str) -> Path:
     repository = resolve_registered_repository(
-        repository_id=repository_id, store=RepositoryStore()
+        repository_id=repository_id, store=PostgresRepositoryStore()
     )
-    return Path(repository.path).resolve()
-
+    try:
+        return ensure_repository_checkout(repository)
+    except RepositoryCheckoutUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository checkout is unavailable",
+        ) from exc
 
 @router.post("/proposals", response_model=PatchCreateResponse)
 def create_proposals(
-    request: PatchProposal, store: PatchProposalStore = Depends(get_patch_store)
+    request: PatchProposal, store: PostgresPatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
     root = get_repository_root(request.repository_id)
@@ -91,7 +105,7 @@ def list_proposals(
     repository_id: UUID,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
     get_repository_root(str(repository_id))
@@ -104,7 +118,7 @@ def list_proposals(
 @router.get("/proposals/{proposal_id}")
 def get_proposal(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
     proposal = store.get(str(proposal_id))
@@ -128,7 +142,7 @@ def get_proposal(
 )
 def reject_proposal(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
@@ -156,7 +170,7 @@ def reject_proposal(
 
 @router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
 def approve_proposal(
-    proposal_id: UUID, store: PatchProposalStore = Depends(get_patch_store)
+    proposal_id: UUID, store: PostgresPatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
 
@@ -189,6 +203,34 @@ def approve_proposal(
         if not res.applied:
             raise ValueError(res.message)
 
+        blob_enabled = (
+            os.getenv("AZURE_BLOB_ENABLED", "false")
+            .strip()
+            .lower()
+            == "true"
+        )
+
+        if blob_enabled:
+            managed_checkout = (
+                root.name.startswith("github-")
+                and len(root.name) == 39
+            )
+
+            if not managed_checkout:
+                raise RuntimeError(
+                    "Approved patches require a managed "
+                    "GitHub checkout when Blob Storage "
+                    "persistence is enabled."
+                )
+
+            snapshot_store = AzureRepositorySnapshotStore()
+
+            snapshot_store.upload_updated_checkout(
+                repository_path=root,
+            )
+
+
+
     except (OSError, ValueError, UnicodeError) as err:
         store.set_status(
             str(proposal_id),
@@ -196,6 +238,24 @@ def approve_proposal(
             new_status="failed",
         )
         raise HTTPException(409, str(err)) from None
+
+    except Exception:
+        logger.exception(
+            "Patch %s may have changed local files, "
+            "but durable persistence was not confirmed",
+            proposal_id,
+        )
+
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Patch persistence could not be confirmed. "
+                "The proposal requires reconciliation "
+                "before another approval attempt."
+            ),
+        ) from None
+
+    
 
     changed = store.set_status(
         proposal_id=str(proposal_id),
@@ -222,7 +282,7 @@ def approve_proposal(
 @router.get("/proposals/{proposal_id}/preview")
 def get_proposal_preview(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
@@ -283,11 +343,11 @@ def get_proposal_preview(
 
 @router.post("/generate")
 def generate_patch_proposal(
-    request: GeneratePatchRequest, store: PatchProposalStore = Depends(get_patch_store)
+    request: GeneratePatchRequest, store: PostgresPatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
 
-    selection = LLMSelectionStore().get(fallback=get_settings().llm_selection)
+    selection = PostgresLLMSelectionStore().get(fallback=get_settings().llm_selection)
 
     provider = LLMProviderFactory(selection).create_patch_provider()
 

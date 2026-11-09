@@ -3,7 +3,7 @@ from hmac import compare_digest
 from fastapi import HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
-from app.auth.sessions import get_session
+from app.auth.postgres_sessions import get_session
 from app.core import get_settings
 
 SESSION_COOKIE = "devpilot_session"

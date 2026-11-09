@@ -4,7 +4,7 @@ from google import genai
 
 from app.core import get_settings
 from app.llm.models import LLMProviderType, LLMSelection
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
 
 router = APIRouter(
     prefix="/api/v1/llm",
@@ -20,8 +20,8 @@ def require_development() -> None:
         )
 
 
-def get_selection_store() -> LLMSelectionStore:
-    return LLMSelectionStore()
+def get_selection_store() -> PostgresLLMSelectionStore:
+    return PostgresLLMSelectionStore()
 
 
 def get_available_gemini_models() -> set[str]:
@@ -119,7 +119,7 @@ def list_models(
 
 @router.get("/selection", response_model=LLMSelection)
 def get_selection(
-    store: LLMSelectionStore = Depends(get_selection_store),
+    store: PostgresLLMSelectionStore = Depends(get_selection_store),
     _: None = Depends(require_development),
 ):
     return store.get(fallback=get_settings().llm_selection)
@@ -128,7 +128,7 @@ def get_selection(
 @router.put("/selection", response_model=LLMSelection)
 def update_selection(
     selection: LLMSelection,
-    store: LLMSelectionStore = Depends(get_selection_store),
+    store: PostgresLLMSelectionStore = Depends(get_selection_store),
     _: None = Depends(require_development),
 ):
     settings = get_settings()

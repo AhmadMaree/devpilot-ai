@@ -18,7 +18,7 @@ from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
 )
 from app.repositories.resolver import resolve_registered_repository
-from app.repositories.store import RepositoryStore
+from app.repositories.postgres_store import PostgresRepositoryStore
 from app.retrieval.factory import (
     create_repository_search,
     get_active_index_version,
@@ -71,7 +71,7 @@ def ask_question(
 
     repository = resolve_registered_repository(
         request.repository_id,
-        RepositoryStore(),
+        PostgresRepositoryStore(),
     )
 
     selection = get_effective_llm_selection()

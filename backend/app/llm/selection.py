@@ -1,6 +1,6 @@
 from app.core import get_settings
 from app.llm.models import LLMProviderType, LLMSelection
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
 
 
 def get_effective_llm_selection() -> LLMSelection:
@@ -24,6 +24,6 @@ def get_effective_llm_selection() -> LLMSelection:
         return selection
 
     # Development retains the existing UI-selected model.
-    return LLMSelectionStore().get(
+    return PostgresLLMSelectionStore().get(
         fallback=settings.llm_selection
     )

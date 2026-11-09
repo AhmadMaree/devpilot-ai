@@ -17,6 +17,9 @@ from app.retrieval.azure_index import AzureSearchIndex
 from app.retrieval.local_index import LocalVectorIndex
 from app.embeddings.factory import get_embedding_model_identity
 
+from app.storage.azure_blob import AzureBlobIndexStore
+from app.repositories.checkout import ensure_repository_checkout
+
 IndexProgress = Callable[[str, int, int], None]
 logger = logging.getLogger(__name__)
 
@@ -54,10 +57,15 @@ def index_repository(
     if progress is not None:
         progress("ingestion", 0, 0)
 
+    checkout_path = ensure_repository_checkout(repository)
+
+    check_cancelled()
+
     ingestion = ingest_repository(
         repo_id=str(repository_id),
-        repo_path=Path(repository.path),
+        repo_path=checkout_path,
     )
+
     check_cancelled()
 
     if progress is not None:
@@ -140,6 +148,32 @@ def index_repository(
 
             if progress is not None:
                 progress("uploading", len(chunks), len(chunks))
+
+
+        # Persist the complete JSON index before activating
+        # the version in PostgreSQL.
+        blob_enabled = (
+            os.getenv("AZURE_BLOB_ENABLED", "false")
+            .strip()
+            .lower()
+            == "true"
+        )
+
+        if blob_enabled:
+            check_cancelled()
+            if progress is not None:
+                progress("blob_upload", 0, 1)
+
+            blob_store = AzureBlobIndexStore()
+            blob_store.upload_index(
+                repository_id=repository_id,
+                index_version=index_version,
+                local_path=index_path,
+            )
+
+            check_cancelled()
+            if progress is not None:
+                progress("blob_upload", 1, 1)
 
         azure_ready = azure_index is not None
 
