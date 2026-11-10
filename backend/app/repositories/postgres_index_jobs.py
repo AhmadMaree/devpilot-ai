@@ -1,19 +1,17 @@
-
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
-from app.storage.database import get_database_engine
 from app.repositories.index_jobs import (
     DuplicateIndexJobError,
+    IndexingJob,
     IndexJobQueueFullError,
     IndexJobStateChangedError,
-    IndexingJob,
 )
+from app.storage.database import get_database_engine
 
 
 class PostgresIndexJobStore:
@@ -27,7 +25,7 @@ class PostgresIndexJobStore:
 
     def initialize(self) -> None:
         """Alembic owns schema creation."""
-        return None
+        return
 
     @staticmethod
     def _now() -> str:
@@ -90,9 +88,7 @@ class PostgresIndexJobStore:
                 ).scalar_one()
 
                 if active_count >= capacity:
-                    raise IndexJobQueueFullError(
-                        "Indexing job queue is full"
-                    )
+                    raise IndexJobQueueFullError("Indexing job queue is full")
 
                 connection.execute(
                     text("""
@@ -133,7 +129,8 @@ class PostgresIndexJobStore:
                     getattr(exc.orig, "diag", None),
                     "constraint_name",
                     None,
-                ) == "idx_index_jobs_active_repository"
+                )
+                == "idx_index_jobs_active_repository"
             ):
                 raise DuplicateIndexJobError(
                     "Repository already has an active indexing job"
@@ -144,14 +141,18 @@ class PostgresIndexJobStore:
 
     def get(self, job_id: UUID) -> IndexingJob | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT *
                     FROM repository_index_jobs
                     WHERE job_id = :job_id
                 """),
-                {"job_id": str(job_id)},
-            ).mappings().first()
+                    {"job_id": str(job_id)},
+                )
+                .mappings()
+                .first()
+            )
 
         return self._parse(row)
 
@@ -160,29 +161,37 @@ class PostgresIndexJobStore:
         repository_id: UUID,
     ) -> IndexingJob | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT *
                     FROM repository_index_jobs
                     WHERE repository_id = :repository_id
                     ORDER BY created_at DESC, job_id DESC
                     LIMIT 1
                 """),
-                {"repository_id": str(repository_id)},
-            ).mappings().first()
+                    {"repository_id": str(repository_id)},
+                )
+                .mappings()
+                .first()
+            )
 
         return self._parse(row)
 
     def queued(self) -> list[IndexingJob]:
         with self.engine.connect() as connection:
-            rows = connection.execute(
-                text("""
+            rows = (
+                connection.execute(
+                    text("""
                     SELECT *
                     FROM repository_index_jobs
                     WHERE status = 'queued'
                     ORDER BY created_at ASC, job_id ASC
                 """)
-            ).mappings().all()
+                )
+                .mappings()
+                .all()
+            )
 
         return [IndexingJob.model_validate(dict(row)) for row in rows]
 
@@ -248,9 +257,7 @@ class PostgresIndexJobStore:
             )
 
             if result.rowcount != 1:
-                raise IndexJobStateChangedError(
-                    "Indexing job is no longer running"
-                )
+                raise IndexJobStateChangedError("Indexing job is no longer running")
 
     def complete(
         self,

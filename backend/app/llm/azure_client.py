@@ -1,7 +1,9 @@
 from functools import lru_cache
+
 from openai import AzureOpenAI
 
 from app.core import get_settings
+
 
 @lru_cache(maxsize=1)
 def get_azure_openai_client() -> AzureOpenAI:
@@ -12,8 +14,7 @@ def get_azure_openai_client() -> AzureOpenAI:
 
     if not endpoint or not api_key:
         raise ValueError(
-            "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY "
-            "must be configured"
+            "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be configured"
         )
 
     return AzureOpenAI(
@@ -21,6 +22,5 @@ def get_azure_openai_client() -> AzureOpenAI:
         api_key=api_key,
         api_version=settings.azure_openai_api_version,
         timeout=120.0,
-        max_retries=2
+        max_retries=2,
     )
-

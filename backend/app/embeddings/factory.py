@@ -8,10 +8,9 @@ def get_embedding_provider_name() -> str:
     provider = get_settings().embedding_provider.strip().lower()
 
     if provider not in {"ollama", "azure"}:
-        raise ValueError(
-            "EMBEDDING_PROVIDER must be 'ollama' or 'azure'"
-        )
+        raise ValueError("EMBEDDING_PROVIDER must be 'ollama' or 'azure'")
     return provider
+
 
 def create_embedding_provider() -> EmbeddingProvider:
     provider = get_embedding_provider_name()
@@ -19,6 +18,7 @@ def create_embedding_provider() -> EmbeddingProvider:
     if provider == "azure":
         return AzureEmbeddingProvider()
     return OllamaEmbeddingProvider()
+
 
 def get_embedding_model_identity() -> str:
     settings = get_settings()

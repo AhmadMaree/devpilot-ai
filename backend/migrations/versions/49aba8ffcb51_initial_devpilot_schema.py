@@ -1,4 +1,3 @@
-
 """Initial DevPilot AI PostgreSQL schema.
 
 Revision ID: 49aba8ffcb51
@@ -6,16 +5,15 @@ Revises:
 Create Date: 2026-11-08 22:43:17.370475
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
-
+from alembic import op
 
 revision: str = "49aba8ffcb51"
-down_revision: Union[str, Sequence[str], None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
@@ -79,9 +77,7 @@ def upgrade() -> None:
         "repository_index_jobs",
         ["repository_id"],
         unique=True,
-        postgresql_where=sa.text(
-            "status IN ('queued', 'running')"
-        ),
+        postgresql_where=sa.text("status IN ('queued', 'running')"),
     )
 
     op.create_table(

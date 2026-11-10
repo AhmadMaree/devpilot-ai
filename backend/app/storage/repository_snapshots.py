@@ -1,4 +1,3 @@
-
 import os
 import tarfile
 import tempfile
@@ -6,7 +5,6 @@ from pathlib import Path, PurePosixPath
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
-
 
 MAX_FILES = 20000
 MAX_UNCOMPRESSED_BYTES = 250 * 1024 * 1024
@@ -19,18 +17,12 @@ class RepositorySnapshotError(RuntimeError):
 
 class AzureRepositorySnapshotStore:
     def __init__(self) -> None:
-        connection_string = os.getenv(
-            "AZURE_STORAGE_CONNECTION_STRING", ""
-        ).strip()
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "").strip()
 
         if not connection_string:
-            raise RepositorySnapshotError(
-                "Azure Storage connection string is missing"
-            )
+            raise RepositorySnapshotError("Azure Storage connection string is missing")
 
-        self.client = BlobServiceClient.from_connection_string(
-            connection_string
-        )
+        self.client = BlobServiceClient.from_connection_string(connection_string)
 
         self.container = self.client.get_container_client(
             os.getenv(
@@ -46,25 +38,24 @@ class AzureRepositorySnapshotStore:
             not repository_directory.startswith("github-")
             or len(repository_directory) != 39
         ):
-            raise RepositorySnapshotError(
-                "Invalid managed repository directory"
-            )
+            raise RepositorySnapshotError("Invalid managed repository directory")
 
         import uuid
 
         try:
             uuid.UUID(hex=repository_directory[7:])
         except ValueError as exc:
-            raise RepositorySnapshotError(
-                "Invalid repository identifier"
-            ) from exc
+            raise RepositorySnapshotError("Invalid repository identifier") from exc
 
         return f"repositories/{repository_directory}/source.tar.gz"
 
-    def upload(self, repository_path: Path, *, overwrite: bool = False,) -> str:
-        repository_path = Path(repository_path).resolve(
-            strict=True
-        )
+    def upload(
+        self,
+        repository_path: Path,
+        *,
+        overwrite: bool = False,
+    ) -> str:
+        repository_path = Path(repository_path).resolve(strict=True)
 
         blob_name = self.blob_name(repository_path.name)
 
@@ -74,9 +65,7 @@ class AzureRepositorySnapshotStore:
         with tempfile.TemporaryDirectory() as temp_dir:
             archive_path = Path(temp_dir) / "source.tar.gz"
 
-            with tarfile.open(
-                archive_path, mode="w:gz"
-            ) as archive:
+            with tarfile.open(archive_path, mode="w:gz") as archive:
                 for path in sorted(repository_path.rglob("*")):
                     if path.is_symlink():
                         raise RepositorySnapshotError(
@@ -92,17 +81,12 @@ class AzureRepositorySnapshotStore:
                         count += 1
                         total_size += path.stat().st_size
 
-                        if (
-                            count > MAX_FILES
-                            or total_size > MAX_UNCOMPRESSED_BYTES
-                        ):
+                        if count > MAX_FILES or total_size > MAX_UNCOMPRESSED_BYTES:
                             raise RepositorySnapshotError(
                                 "Repository exceeds snapshot limits"
                             )
 
-                    relative = path.relative_to(
-                        repository_path
-                    ).as_posix()
+                    relative = path.relative_to(repository_path).as_posix()
 
                     archive.add(
                         path,
@@ -111,9 +95,7 @@ class AzureRepositorySnapshotStore:
                     )
 
             if archive_path.stat().st_size > MAX_ARCHIVE_BYTES:
-                raise RepositorySnapshotError(
-                    "Compressed repository exceeds 100 MiB"
-                )
+                raise RepositorySnapshotError("Compressed repository exceeds 100 MiB")
 
             blob = self.container.get_blob_client(blob_name)
 
@@ -136,15 +118,11 @@ class AzureRepositorySnapshotStore:
             )
 
         if destination.exists():
-            raise RepositorySnapshotError(
-                "Restore destination already exists"
-            )
+            raise RepositorySnapshotError("Restore destination already exists")
 
         blob = self.container.get_blob_client(blob_name)
 
-        with tempfile.TemporaryDirectory(
-            dir=destination.parent
-        ) as temp_dir:
+        with tempfile.TemporaryDirectory(dir=destination.parent) as temp_dir:
             temp_root = Path(temp_dir)
             archive_path = temp_root / "source.tar.gz"
             extraction_root = temp_root / "extracted"
@@ -153,9 +131,7 @@ class AzureRepositorySnapshotStore:
             properties = blob.get_blob_properties()
 
             if properties.size > MAX_ARCHIVE_BYTES:
-                raise RepositorySnapshotError(
-                    "Stored repository snapshot is too large"
-                )
+                raise RepositorySnapshotError("Stored repository snapshot is too large")
 
             with archive_path.open("wb") as stream:
                 downloader = blob.download_blob()
@@ -169,9 +145,7 @@ class AzureRepositorySnapshotStore:
             count = 0
             total_size = 0
 
-            with tarfile.open(
-                archive_path, mode="r:gz"
-            ) as archive:
+            with tarfile.open(archive_path, mode="r:gz") as archive:
                 members = archive.getmembers()
                 seen_paths: set[str] = set()
 
@@ -185,9 +159,7 @@ class AzureRepositorySnapshotStore:
                         or name.startswith("/")
                         or ":" in name
                     ):
-                        raise RepositorySnapshotError(
-                            "Invalid repository archive path"
-                        )
+                        raise RepositorySnapshotError("Invalid repository archive path")
 
                     relative = PurePosixPath(name)
 
@@ -196,9 +168,7 @@ class AzureRepositorySnapshotStore:
                         or "." in relative.parts
                         or not relative.parts
                     ):
-                        raise RepositorySnapshotError(
-                            "Unsafe repository archive path"
-                        )
+                        raise RepositorySnapshotError("Unsafe repository archive path")
 
                     normalized = relative.as_posix()
 
@@ -210,9 +180,7 @@ class AzureRepositorySnapshotStore:
                     seen_paths.add(normalized)
 
                     if not (member.isfile() or member.isdir()):
-                        raise RepositorySnapshotError(
-                            "Unsupported archive entry type"
-                        )
+                        raise RepositorySnapshotError("Unsupported archive entry type")
                 # Validate the entire archive before extracting.
                 for member in members:
                     relative = PurePosixPath(member.name)
@@ -221,32 +189,22 @@ class AzureRepositorySnapshotStore:
                         relative.is_absolute()
                         or ".." in relative.parts
                         or not relative.parts
-                        or not (
-                            member.isfile()
-                            or member.isdir()
-                        )
+                        or not (member.isfile() or member.isdir())
                     ):
-                        raise RepositorySnapshotError(
-                            "Unsafe repository archive entry"
-                        )
+                        raise RepositorySnapshotError("Unsafe repository archive entry")
 
                     if member.isfile():
                         count += 1
                         total_size += member.size
 
-                    if (
-                        count > MAX_FILES
-                        or total_size > MAX_UNCOMPRESSED_BYTES
-                    ):
+                    if count > MAX_FILES or total_size > MAX_UNCOMPRESSED_BYTES:
                         raise RepositorySnapshotError(
                             "Repository exceeds restore limits"
                         )
 
                 # Extract regular files manually.
                 for member in members:
-                    target = extraction_root.joinpath(
-                        *PurePosixPath(member.name).parts
-                    )
+                    target = extraction_root.joinpath(*PurePosixPath(member.name).parts)
 
                     if member.isdir():
                         target.mkdir(
@@ -263,13 +221,12 @@ class AzureRepositorySnapshotStore:
                     source = archive.extractfile(member)
 
                     if source is None:
-                        raise RepositorySnapshotError(
-                            "Missing archive file content"
-                        )
+                        raise RepositorySnapshotError("Missing archive file content")
 
                     with source, target.open("xb") as output:
                         import shutil
-                        copied = shutil.copyfileobj(
+
+                        shutil.copyfileobj(
                             source,
                             output,
                             length=1024 * 1024,
@@ -282,9 +239,7 @@ class AzureRepositorySnapshotStore:
         return destination
 
     def delete(self, repository_directory: str) -> None:
-        blob = self.container.get_blob_client(
-            self.blob_name(repository_directory)
-        )
+        blob = self.container.get_blob_client(self.blob_name(repository_directory))
 
         try:
             blob.delete_blob()

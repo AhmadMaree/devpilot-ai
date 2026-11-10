@@ -1,24 +1,24 @@
+import logging
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
+from azure.core.exceptions import AzureError
 
 from app.core import get_settings
-
-from typing import Protocol
-
-from .models import Repository
-from .validation import InvalidRepositoryError, validate_repository_path
-
 from app.storage.repository_snapshots import (
     AzureRepositorySnapshotStore,
     RepositorySnapshotError,
 )
+
+from .models import Repository
+from .validation import InvalidRepositoryError, validate_repository_path
 
 
 class GitHubImportError(Exception):
@@ -26,10 +26,11 @@ class GitHubImportError(Exception):
 
 
 class RepositoryWriter(Protocol):
-    def create(self, name: str, path: Path) -> Repository:
-        ...
+    def create(self, name: str, path: Path) -> Repository: ...
+
 
 REPOSITORY_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]+$")
+logger = logging.getLogger(__name__)
 
 
 def parse_github_repository_url(url: str) -> tuple[str, str]:
@@ -155,10 +156,7 @@ def import_public_github_repository(
 
         validated_path = validate_repository_path(str(destination))
         blob_enabled = (
-            os.getenv("AZURE_BLOB_ENABLED", "false")
-            .strip()
-            .lower()
-            == "true"
+            os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
         )
 
         if blob_enabled:
@@ -190,9 +188,9 @@ def import_public_github_repository(
             if snapshot_uploaded and snapshot_store is not None:
                 try:
                     snapshot_store.delete(destination.name)
-                except Exception:
-                    # An orphaned snapshot may remain.
-                    # It is not registered in PostgreSQL.
-                    pass
+                except (AzureError, RepositorySnapshotError):
+                    logger.exception(
+                        "Could not delete the unregistered repository snapshot"
+                    )
             if destination.exists():
                 shutil.rmtree(destination)

@@ -1,4 +1,3 @@
-
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -14,13 +13,11 @@ class PostgresPatchProposalStore:
     """PostgreSQL-backed patch proposal persistence."""
 
     def __init__(self, engine: Engine | None = None) -> None:
-        self.engine = (
-            engine if engine is not None else get_database_engine()
-        )
+        self.engine = engine if engine is not None else get_database_engine()
 
     def initialize(self) -> None:
         """Database schema is managed by Alembic."""
-        return None
+        return
 
     def create(
         self,
@@ -79,8 +76,9 @@ class PostgresPatchProposalStore:
 
     def get(self, proposal_id: str) -> dict | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         repository_id,
@@ -94,8 +92,11 @@ class PostgresPatchProposalStore:
                     FROM patch_proposals
                     WHERE id = :proposal_id
                 """),
-                {"proposal_id": proposal_id},
-            ).mappings().first()
+                    {"proposal_id": proposal_id},
+                )
+                .mappings()
+                .first()
+            )
 
         return dict(row) if row is not None else None
 
@@ -154,8 +155,9 @@ class PostgresPatchProposalStore:
             raise ValueError("offset must not be negative")
 
         with self.engine.connect() as connection:
-            rows = connection.execute(
-                text("""
+            rows = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         repository_id,
@@ -169,11 +171,14 @@ class PostgresPatchProposalStore:
                     LIMIT :limit
                     OFFSET :offset
                 """),
-                {
-                    "repository_id": str(repository_id),
-                    "limit": limit,
-                    "offset": offset,
-                },
-            ).mappings().all()
+                    {
+                        "repository_id": str(repository_id),
+                        "limit": limit,
+                        "offset": offset,
+                    },
+                )
+                .mappings()
+                .all()
+            )
 
         return [dict(row) for row in rows]

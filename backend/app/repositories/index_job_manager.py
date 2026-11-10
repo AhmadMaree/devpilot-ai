@@ -1,4 +1,3 @@
-
 import logging
 import os
 import sqlite3
@@ -58,9 +57,7 @@ class RepositoryIndexJobManager:
         self.use_postgres = use_postgres
 
         self.db_path = Path(
-            db_path
-            if db_path is not None
-            else get_settings().database_path
+            db_path if db_path is not None else get_settings().database_path
         )
 
         if use_postgres:
@@ -124,9 +121,7 @@ class RepositoryIndexJobManager:
     def enqueue(self, repository_id: UUID) -> IndexingJob:
         with self._lock:
             if self._executor is None:
-                raise RuntimeError(
-                    "Indexing job manager is not running"
-                )
+                raise RuntimeError("Indexing job manager is not running")
 
             job = self.store.create_queued(
                 repository_id,
@@ -197,7 +192,9 @@ class RepositoryIndexJobManager:
                     os.getenv(
                         "AZURE_SEARCH_INDEXING_ENABLED",
                         "false",
-                    ).strip().lower()
+                    )
+                    .strip()
+                    .lower()
                     == "true"
                 )
 
@@ -291,10 +288,7 @@ class RepositoryIndexJobManager:
 
                     if not completed:
                         current = self.store.get(job.job_id)
-                        if (
-                            current is None
-                            or current.status != "completed"
-                        ):
+                        if current is None or current.status != "completed":
                             return
 
         finally:
@@ -312,13 +306,9 @@ class RepositoryIndexJobManager:
 
             current = self.store.get(job_id)
 
-            if (
-                current is not None
-                and current.status in {"queued", "running"}
-            ):
+            if current is not None and current.status in {"queued", "running"}:
                 logger.error(
-                    "Repository indexing job %s "
-                    "could not transition to failed",
+                    "Repository indexing job %s could not transition to failed",
                     job_id,
                 )
 

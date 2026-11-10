@@ -1,4 +1,3 @@
-
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4
@@ -24,7 +23,7 @@ class PostgresRepositoryStore:
         This method is retained for compatibility with
         the existing RepositoryStore interface.
         """
-        return None
+        return
 
     def create(self, name: str, path: Path) -> Repository:
         self.initialize()
@@ -66,8 +65,9 @@ class PostgresRepositoryStore:
         self.initialize()
 
         with self.engine.connect() as connection:
-            rows = connection.execute(
-                text("""
+            rows = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         name,
@@ -76,19 +76,20 @@ class PostgresRepositoryStore:
                     FROM repositories
                     ORDER BY created_at DESC
                 """)
-            ).mappings().all()
+                )
+                .mappings()
+                .all()
+            )
 
-        return [
-            Repository.model_validate(dict(row))
-            for row in rows
-        ]
+        return [Repository.model_validate(dict(row)) for row in rows]
 
     def get(self, repository_id: UUID) -> Repository | None:
         self.initialize()
 
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         name,
@@ -97,10 +98,13 @@ class PostgresRepositoryStore:
                     FROM repositories
                     WHERE id = :repository_id
                 """),
-                {
-                    "repository_id": str(repository_id),
-                },
-            ).mappings().first()
+                    {
+                        "repository_id": str(repository_id),
+                    },
+                )
+                .mappings()
+                .first()
+            )
 
         if row is None:
             return None

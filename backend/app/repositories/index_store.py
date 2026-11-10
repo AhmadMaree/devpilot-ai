@@ -93,7 +93,7 @@ class RepositoryIndexStore:
             indexed_at=datetime.now(UTC),
             index_version=index_version,
             azure_ready=azure_ready,
-            embedding_model=embedding_model
+            embedding_model=embedding_model,
         )
 
         with closing(self._connect()) as conn, conn:
@@ -139,7 +139,7 @@ class RepositoryIndexStore:
             indexed_at=datetime.now(UTC),
             index_version=index_version,
             azure_ready=azure_ready,
-            embedding_model= embedding_model,
+            embedding_model=embedding_model,
         )
 
         with closing(self._connect()) as conn, conn:
@@ -162,7 +162,7 @@ class RepositoryIndexStore:
                     metadata.indexed_at.isoformat(),
                     index_version,
                     int(metadata.azure_ready),
-                    metadata.embedding_model
+                    metadata.embedding_model,
                 ),
             )
             if pointer_cursor.rowcount != 1:

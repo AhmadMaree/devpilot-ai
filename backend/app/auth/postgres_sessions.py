@@ -1,4 +1,3 @@
-
 import hashlib
 import secrets
 import time
@@ -23,7 +22,7 @@ MAX_FAILURES = 5
 
 def initialize_auth_tables() -> None:
     """Alembic manages authentication tables."""
-    return None
+    return
 
 
 def token_hash(token: str) -> str:
@@ -35,9 +34,7 @@ def create_session() -> tuple[str, Session]:
     csrf_token = secrets.token_urlsafe(32)
 
     now = int(time.time())
-    expires_at = now + (
-        get_settings().auth_session_hours * 3600
-    )
+    expires_at = now + (get_settings().auth_session_hours * 3600)
 
     engine = get_database_engine()
 
@@ -83,18 +80,22 @@ def get_session(token: str) -> Session | None:
     engine = get_database_engine()
 
     with engine.connect() as connection:
-        row = connection.execute(
-            text("""
+        row = (
+            connection.execute(
+                text("""
                 SELECT csrf_token, expires_at
                 FROM auth_sessions
                 WHERE token_hash = :token_hash
                   AND expires_at > :now
             """),
-            {
-                "token_hash": token_hash(token),
-                "now": int(time.time()),
-            },
-        ).mappings().first()
+                {
+                    "token_hash": token_hash(token),
+                    "now": int(time.time()),
+                },
+            )
+            .mappings()
+            .first()
+        )
 
     if row is None:
         return None
@@ -126,8 +127,9 @@ def login_allowed(bucket: str) -> bool:
     engine = get_database_engine()
 
     with engine.connect() as connection:
-        row = connection.execute(
-            text("""
+        row = (
+            connection.execute(
+                text("""
                 SELECT
                     attempts,
                     window_start,
@@ -135,8 +137,11 @@ def login_allowed(bucket: str) -> bool:
                 FROM auth_login_attempts
                 WHERE bucket = :bucket
             """),
-            {"bucket": bucket},
-        ).mappings().first()
+                {"bucket": bucket},
+            )
+            .mappings()
+            .first()
+        )
 
     if row is None:
         return True

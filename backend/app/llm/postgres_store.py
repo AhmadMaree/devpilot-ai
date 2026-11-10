@@ -1,4 +1,3 @@
-
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
@@ -10,23 +9,25 @@ class PostgresLLMSelectionStore:
     """PostgreSQL-backed LLM provider and model selection."""
 
     def __init__(self, engine: Engine | None = None) -> None:
-        self.engine = (
-            engine if engine is not None else get_database_engine()
-        )
+        self.engine = engine if engine is not None else get_database_engine()
 
     def initialize(self) -> None:
         """Alembic manages the database schema."""
-        return None
+        return
 
     def get(self, fallback: LLMSelection) -> LLMSelection:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT provider, model
                     FROM llm_settings
                     WHERE id = 1
                 """)
-            ).mappings().first()
+                )
+                .mappings()
+                .first()
+            )
 
         if row is None:
             return fallback

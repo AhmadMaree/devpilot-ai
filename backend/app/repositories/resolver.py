@@ -1,4 +1,3 @@
-
 from typing import Protocol
 from uuid import UUID
 
@@ -8,8 +7,7 @@ from app.repositories.models import Repository
 
 
 class RepositoryReader(Protocol):
-    def get(self, repository_id: UUID) -> Repository | None:
-        ...
+    def get(self, repository_id: UUID) -> Repository | None: ...
 
 
 def resolve_registered_repository(

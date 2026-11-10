@@ -1,4 +1,3 @@
-
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -64,18 +63,14 @@ def is_duplicate_repository_error(exc: IntegrityError) -> bool:
     """Identify the PostgreSQL unique-path constraint."""
     original = exc.orig
 
-    return (
-        getattr(original, "sqlstate", None) == "23505"
-        and getattr(
-            getattr(original, "diag", None),
-            "constraint_name",
-            None,
-        )
-        in {
-            "repositories_path_key",
-            "repositories_pkey",
-        }
-    )
+    return getattr(original, "sqlstate", None) == "23505" and getattr(
+        getattr(original, "diag", None),
+        "constraint_name",
+        None,
+    ) in {
+        "repositories_path_key",
+        "repositories_pkey",
+    }
 
 
 @router.post(
@@ -225,9 +220,7 @@ def get_repository_index_status(
 def get_repository_index_metadata(
     repository_id: UUID,
     store: PostgresRepositoryStore = Depends(get_repository_store),
-    index_store: PostgresRepositoryIndexStore = Depends(
-        get_repository_index_store
-    ),
+    index_store: PostgresRepositoryIndexStore = Depends(get_repository_index_store),
 ) -> RepositoryIndexMetadata:
     if store.get(repository_id) is None:
         raise HTTPException(

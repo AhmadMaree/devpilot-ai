@@ -1,4 +1,3 @@
-
 import json
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -13,13 +12,11 @@ class PostgresDevelopmentWorkflowStore:
     """PostgreSQL-backed development workflow persistence."""
 
     def __init__(self, engine: Engine | None = None) -> None:
-        self.engine = (
-            engine if engine is not None else get_database_engine()
-        )
+        self.engine = engine if engine is not None else get_database_engine()
 
     def initialize(self) -> None:
         """Alembic manages database schema creation."""
-        return None
+        return
 
     def create(
         self,
@@ -64,9 +61,7 @@ class PostgresDevelopmentWorkflowStore:
                     "file_path": file_path,
                     "instruction": instruction,
                     "status": status,
-                    "proposal_id": (
-                        str(proposal_id) if proposal_id else None
-                    ),
+                    "proposal_id": (str(proposal_id) if proposal_id else None),
                     "created_at": created_at,
                     "response_json": json.dumps(response),
                 },
@@ -78,9 +73,7 @@ class PostgresDevelopmentWorkflowStore:
             "file_path": file_path,
             "instruction": instruction,
             "status": status,
-            "proposal_id": (
-                str(proposal_id) if proposal_id else None
-            ),
+            "proposal_id": (str(proposal_id) if proposal_id else None),
             "created_at": created_at,
             "response": response,
         }
@@ -98,8 +91,9 @@ class PostgresDevelopmentWorkflowStore:
             raise ValueError("offset cannot be negative")
 
         with self.engine.connect() as connection:
-            rows = connection.execute(
-                text("""
+            rows = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         repository_id,
@@ -114,12 +108,15 @@ class PostgresDevelopmentWorkflowStore:
                     LIMIT :limit
                     OFFSET :offset
                 """),
-                {
-                    "repository_id": str(repository_id),
-                    "limit": limit,
-                    "offset": offset,
-                },
-            ).mappings().all()
+                    {
+                        "repository_id": str(repository_id),
+                        "limit": limit,
+                        "offset": offset,
+                    },
+                )
+                .mappings()
+                .all()
+            )
 
         return [dict(row) for row in rows]
 
@@ -128,8 +125,9 @@ class PostgresDevelopmentWorkflowStore:
         workflow_id: UUID,
     ) -> dict | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         repository_id,
@@ -142,17 +140,18 @@ class PostgresDevelopmentWorkflowStore:
                     FROM development_workflows
                     WHERE id = :workflow_id
                 """),
-                {
-                    "workflow_id": str(workflow_id),
-                },
-            ).mappings().first()
+                    {
+                        "workflow_id": str(workflow_id),
+                    },
+                )
+                .mappings()
+                .first()
+            )
 
         if row is None:
             return None
 
         result = dict(row)
-        result["response"] = json.loads(
-            result.pop("response_json")
-        )
+        result["response"] = json.loads(result.pop("response_json"))
 
         return result

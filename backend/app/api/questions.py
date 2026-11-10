@@ -8,23 +8,23 @@ from fastapi import APIRouter, HTTPException
 from app.core import get_settings
 from app.embeddings.factory import (
     create_embedding_provider,
-    get_embedding_provider_name
+    get_embedding_provider_name,
 )
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
+from app.llm.selection import get_effective_llm_selection
 from app.rag.models import QuestionRequest, QuestionsAnswer
 from app.rag.service import RAGServices
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
 )
-from app.repositories.resolver import resolve_registered_repository
 from app.repositories.postgres_store import PostgresRepositoryStore
+from app.repositories.resolver import resolve_registered_repository
 from app.retrieval.factory import (
     create_repository_search,
     get_active_index_version,
     get_retrieval_backend,
 )
-from app.llm.selection import get_effective_llm_selection
 
 router = APIRouter(prefix="/api/v1", tags=["Questions"])
 

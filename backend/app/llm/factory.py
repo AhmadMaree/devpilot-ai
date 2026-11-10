@@ -1,13 +1,13 @@
 from dataclasses import dataclass
 
-from app.llm.gemini_provider import GeminiPatchProvider, GeminiProvider
-from app.llm.models import LLMProviderType, LLMSelection
-from app.patches.ollama_provider import OllamaPatchProvider
-from app.rag.ollama import OllamaChatProvider
 from app.llm.azure_provider import (
     AzureChatProvider,
     AzurePatchProvider,
 )
+from app.llm.gemini_provider import GeminiPatchProvider, GeminiProvider
+from app.llm.models import LLMProviderType, LLMSelection
+from app.patches.ollama_provider import OllamaPatchProvider
+from app.rag.ollama import OllamaChatProvider
 
 
 class ProviderNotConfiguredError(ValueError):

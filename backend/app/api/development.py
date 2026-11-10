@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from uuid import UUID
 
 import httpx
@@ -11,15 +10,15 @@ from app.api.patches import get_patch_store, require_local_environment
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
 from app.llm.postgres_store import PostgresLLMSelectionStore
-from app.patches.preview import preview_patch
 from app.patches.postgres_store import PostgresPatchProposalStore
-from app.repositories.resolver import resolve_registered_repository
-from app.repositories.postgres_store import PostgresRepositoryStore
-from app.storage.postgres_development_workflows import PostgresDevelopmentWorkflowStore
+from app.patches.preview import preview_patch
 from app.repositories.checkout import (
-    ensure_repository_checkout,
     RepositoryCheckoutUnavailableError,
+    ensure_repository_checkout,
 )
+from app.repositories.postgres_store import PostgresRepositoryStore
+from app.repositories.resolver import resolve_registered_repository
+from app.storage.postgres_development_workflows import PostgresDevelopmentWorkflowStore
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +122,9 @@ def create_development_workflow(
         ) from exc
 
     try:
-        selection = PostgresLLMSelectionStore().get(fallback=get_settings().llm_selection)
+        selection = PostgresLLMSelectionStore().get(
+            fallback=get_settings().llm_selection
+        )
 
         provider = LLMProviderFactory(selection).create_patch_provider()
 

@@ -17,23 +17,22 @@ from app.agents.models import (
 )
 from app.agents.retriever import RepositoryRetriever
 from app.core import get_settings
-from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.embeddings.factory import (
+    create_embedding_provider,
+    get_embedding_provider_name,
+)
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
 from app.llm.selection import get_effective_llm_selection
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
 )
-from app.repositories.resolver import resolve_registered_repository
 from app.repositories.postgres_store import PostgresRepositoryStore
+from app.repositories.resolver import resolve_registered_repository
 from app.retrieval.factory import (
     create_repository_search,
     get_active_index_version,
     get_retrieval_backend,
-)
-from app.embeddings.factory import (
-    create_embedding_provider,
-    get_embedding_provider_name,
 )
 from app.storage.postgres_investigations import PostgresInvestigationStore
 
@@ -106,7 +105,7 @@ def investigate(
             model=selection.model,
             index_version=active_version,
             retrieval_backend=retrieval_backend,
-            embedding_provider=get_embedding_provider_name()
+            embedding_provider=get_embedding_provider_name(),
         )
 
         result = graph.invoke(

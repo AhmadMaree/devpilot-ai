@@ -1,4 +1,3 @@
-
 import json
 from datetime import UTC, datetime
 from uuid import uuid4
@@ -14,13 +13,11 @@ class PostgresInvestigationStore:
     """PostgreSQL-backed investigation persistence."""
 
     def __init__(self, engine: Engine | None = None) -> None:
-        self.engine = (
-            engine if engine is not None else get_database_engine()
-        )
+        self.engine = engine if engine is not None else get_database_engine()
 
     def initialize(self) -> None:
         """Alembic manages database schema creation."""
-        return None
+        return
 
     def save(self, result: InvestigationResponse) -> dict:
         investigation_id = str(uuid4())
@@ -70,8 +67,9 @@ class PostgresInvestigationStore:
             raise ValueError("limit must not be negative")
 
         with self.engine.connect() as connection:
-            rows = connection.execute(
-                text("""
+            rows = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         repository_id,
@@ -83,8 +81,11 @@ class PostgresInvestigationStore:
                     ORDER BY created_at DESC, id DESC
                     LIMIT :limit
                 """),
-                {"limit": limit},
-            ).mappings().all()
+                    {"limit": limit},
+                )
+                .mappings()
+                .all()
+            )
 
         # Preserve the existing list_recent() contract:
         # response_json remains a JSON string, not a dict.
@@ -95,8 +96,9 @@ class PostgresInvestigationStore:
         investigation_id: str,
     ) -> dict | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT
                         id,
                         created_at,
@@ -104,8 +106,11 @@ class PostgresInvestigationStore:
                     FROM investigations
                     WHERE id = :investigation_id
                 """),
-                {"investigation_id": investigation_id},
-            ).mappings().first()
+                    {"investigation_id": investigation_id},
+                )
+                .mappings()
+                .first()
+            )
 
         if row is None:
             return None

@@ -1,4 +1,3 @@
-
 from datetime import UTC, datetime
 from uuid import UUID
 
@@ -6,8 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from app.storage.database import get_database_engine
 from app.repositories.index_jobs import IndexJobStateChangedError
+from app.storage.database import get_database_engine
 
 
 class RepositoryIndexMetadata(BaseModel):
@@ -144,9 +143,7 @@ class PostgresRepositoryIndexStore:
             )
 
             if result.rowcount != 1:
-                raise IndexJobStateChangedError(
-                    "Indexing job is no longer running"
-                )
+                raise IndexJobStateChangedError("Indexing job is no longer running")
 
             # Publish the active index only after claiming the job.
             # A failure here rolls back the job completion too.
@@ -162,8 +159,9 @@ class PostgresRepositoryIndexStore:
         repository_id: UUID,
     ) -> RepositoryIndexMetadata | None:
         with self.engine.connect() as connection:
-            row = connection.execute(
-                text("""
+            row = (
+                connection.execute(
+                    text("""
                     SELECT
                         repository_id,
                         commit_sha,
@@ -174,8 +172,11 @@ class PostgresRepositoryIndexStore:
                     FROM repository_indexes
                     WHERE repository_id = :repository_id
                 """),
-                {"repository_id": str(repository_id)},
-            ).mappings().first()
+                    {"repository_id": str(repository_id)},
+                )
+                .mappings()
+                .first()
+            )
 
         if row is None:
             return None

@@ -1,4 +1,3 @@
-
 import os
 from uuid import UUID
 
@@ -17,20 +16,13 @@ class RepositoryIndexNotFoundError(FileNotFoundError):
 
 
 def blob_storage_enabled() -> bool:
-    return (
-        os.getenv("AZURE_BLOB_ENABLED", "false")
-        .strip()
-        .lower()
-        == "true"
-    )
+    return os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
 
 
 def load_repository_index(
     repository_id: UUID,
 ) -> LocalVectorIndex:
-    metadata = PostgresRepositoryIndexStore().get(
-        repository_id
-    )
+    metadata = PostgresRepositoryIndexStore().get(repository_id)
 
     if metadata is None or not metadata.index_version:
         raise RepositoryIndexNotFoundError(
@@ -60,19 +52,13 @@ def load_repository_index(
             )
         except Exception as exc:
             raise RepositoryIndexNotFoundError(
-                f"Could not restore the active index "
-                f"for repository {repository_id}"
+                f"Could not restore the active index for repository {repository_id}"
             ) from exc
 
     index = LocalVectorIndex.load(index_path)
 
     # Preserve the repository isolation check.
-    if any(
-        item.chunk.repository_id != str(repository_id)
-        for item in index.items
-    ):
-        raise ValueError(
-            "Index contains chunks from another repository"
-        )
+    if any(item.chunk.repository_id != str(repository_id) for item in index.items):
+        raise ValueError("Index contains chunks from another repository")
 
     return index

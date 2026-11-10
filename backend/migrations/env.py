@@ -1,4 +1,3 @@
-
 from logging.config import fileConfig
 
 from alembic import context
@@ -23,14 +22,10 @@ def get_database_url() -> str:
     database_url = settings.database_url.get_secret_value()
 
     if not database_url:
-        raise RuntimeError(
-            "DATABASE_URL is missing. Add it to backend/.env"
-        )
+        raise RuntimeError("DATABASE_URL is missing. Add it to backend/.env")
 
     if not database_url.startswith("postgresql+psycopg://"):
-        raise ValueError(
-            "DATABASE_URL must use postgresql+psycopg://"
-        )
+        raise ValueError("DATABASE_URL must use postgresql+psycopg://")
 
     return database_url
 

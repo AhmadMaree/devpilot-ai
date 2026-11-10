@@ -41,12 +41,16 @@ def workflow_api(tmp_path, monkeypatch):
     history_store = DevelopmentWorkflowStore(database)
     history_store.initialize()
 
-    # The endpoint constructs RepositoryStore() directly.
-    # Redirect it to our isolated test database.
+    # Redirect the endpoint's PostgreSQL store to the isolated test database.
     monkeypatch.setattr(
         development,
-        "RepositoryStore",
+        "PostgresRepositoryStore",
         lambda: repository_store,
+    )
+    monkeypatch.setattr(
+        development,
+        "ensure_repository_checkout",
+        lambda repository: repository_root,
     )
 
     class FakeProvider:
@@ -66,11 +70,14 @@ def workflow_api(tmp_path, monkeypatch):
         FakeFactory,
     )
 
-    # Avoid reading the real LLM selection database.
+    class FakeLLMSelectionStore:
+        def get(self, fallback):
+            return fallback
+
     monkeypatch.setattr(
-        development.LLMSelectionStore,
-        "get",
-        lambda self, fallback: fallback,
+        development,
+        "PostgresLLMSelectionStore",
+        FakeLLMSelectionStore,
     )
 
     # These tests cover workflow behavior, not API-key authentication.
@@ -78,17 +85,17 @@ def workflow_api(tmp_path, monkeypatch):
     app.dependency_overrides[get_patch_store] = lambda: patch_store
     app.dependency_overrides[development.get_workflow_store] = lambda: history_store
 
-    # The test intentionally does not start the indexing
-    # worker in the application's lifespan.
-    with TestClient(app) as client:
-        yield {
-            "client": client,
-            "repository_id": repository_id,
-            "repository_root": repository_root,
-            "patch_store": patch_store,
-            "history_store": history_store,
-            "database": database,
-        }
+    # Do not run the production lifespan, which requires PostgreSQL.
+    client = TestClient(app)
+    yield {
+        "client": client,
+        "repository_id": repository_id,
+        "repository_root": repository_root,
+        "patch_store": patch_store,
+        "history_store": history_store,
+        "database": database,
+    }
+    client.close()
 
     app.dependency_overrides.clear()
 

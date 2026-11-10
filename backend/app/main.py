@@ -1,4 +1,3 @@
-
 import logging
 from contextlib import asynccontextmanager
 
@@ -22,7 +21,6 @@ from .api.questions import router as questions_router
 from .api.routes import router
 from .core import get_settings
 
-
 logger = logging.getLogger(__name__)
 
 EXPECTED_ALEMBIC_REVISION = "49aba8ffcb51"
@@ -35,9 +33,11 @@ def verify_database_schema() -> None:
     with engine.connect() as connection:
         connection.execute(text("SELECT 1")).scalar_one()
 
-        revisions = connection.execute(
-            text("SELECT version_num FROM alembic_version")
-        ).scalars().all()
+        revisions = (
+            connection.execute(text("SELECT version_num FROM alembic_version"))
+            .scalars()
+            .all()
+        )
 
     if revisions != [EXPECTED_ALEMBIC_REVISION]:
         raise RuntimeError(
@@ -69,9 +69,7 @@ def create_app() -> FastAPI:
             manager.start()
             app.state.index_job_manager = manager
 
-            logger.info(
-                "DevPilot AI started with PostgreSQL persistence"
-            )
+            logger.info("DevPilot AI started with PostgreSQL persistence")
 
             yield
 

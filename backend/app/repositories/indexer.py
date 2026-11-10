@@ -8,17 +8,16 @@ from uuid import UUID, uuid4
 
 from app.chunking.services import chunk_documents
 from app.embeddings.base import EmbeddingProvider
+from app.embeddings.factory import get_embedding_model_identity
 from app.ingestion.service import ingest_repository
+from app.repositories.checkout import ensure_repository_checkout
 from app.repositories.index_jobs import IndexingCancelledError
 from app.repositories.index_paths import get_repository_index_path
 from app.repositories.index_store import RepositoryIndexStore
 from app.repositories.store import RepositoryStore
 from app.retrieval.azure_index import AzureSearchIndex
 from app.retrieval.local_index import LocalVectorIndex
-from app.embeddings.factory import get_embedding_model_identity
-
 from app.storage.azure_blob import AzureBlobIndexStore
-from app.repositories.checkout import ensure_repository_checkout
 
 IndexProgress = Callable[[str, int, int], None]
 logger = logging.getLogger(__name__)
@@ -149,14 +148,10 @@ def index_repository(
             if progress is not None:
                 progress("uploading", len(chunks), len(chunks))
 
-
         # Persist the complete JSON index before activating
         # the version in PostgreSQL.
         blob_enabled = (
-            os.getenv("AZURE_BLOB_ENABLED", "false")
-            .strip()
-            .lower()
-            == "true"
+            os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
         )
 
         if blob_enabled:

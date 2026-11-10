@@ -2,27 +2,26 @@ import logging
 import os
 from pathlib import Path
 from uuid import UUID
-from sqlalchemy import text
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
 from app.llm.postgres_store import PostgresLLMSelectionStore
 from app.patches.generation import GeneratePatchRequest, generate_patch
-from app.patches.preview import preview_patch
-from app.patches.service import apply_approved_patch
 from app.patches.models import PatchProposal
 from app.patches.postgres_store import PostgresPatchProposalStore
-from app.repositories.resolver import resolve_registered_repository
-from app.repositories.postgres_store import PostgresRepositoryStore
+from app.patches.preview import preview_patch
+from app.patches.service import apply_approved_patch
 from app.repositories.checkout import (
-    ensure_repository_checkout,
     RepositoryCheckoutUnavailableError,
+    ensure_repository_checkout,
 )
-
+from app.repositories.postgres_store import PostgresRepositoryStore
+from app.repositories.resolver import resolve_registered_repository
 from app.storage.database import get_database_engine
 from app.storage.repository_snapshots import (
     AzureRepositorySnapshotStore,
@@ -85,6 +84,7 @@ def get_repository_root(repository_id: str) -> Path:
             status_code=503,
             detail="Repository checkout is unavailable",
         ) from exc
+
 
 @router.post("/proposals", response_model=PatchCreateResponse)
 def create_proposals(
@@ -175,12 +175,10 @@ def reject_proposal(
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
-
 @router.post(
     "/proposals/{proposal_id}/approve",
     response_model=PatchActionResponse,
 )
-
 @router.post(
     "/proposals/{proposal_id}/approve",
     response_model=PatchActionResponse,
@@ -213,44 +211,28 @@ def approve_proposal(
         explanation=saved["explanation"],
     )
 
-    blob_enabled = (
-        os.getenv("AZURE_BLOB_ENABLED", "false")
-        .strip()
-        .lower()
-        == "true"
-    )
+    blob_enabled = os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
 
     snapshot_store = None
 
     if blob_enabled:
         try:
-            AzureRepositorySnapshotStore.blob_name(
-                root.name
-            )
+            AzureRepositorySnapshotStore.blob_name(root.name)
 
             if not (root / ".git").is_dir():
-                raise RepositorySnapshotError(
-                    "Git metadata is missing"
-                )
+                raise RepositorySnapshotError("Git metadata is missing")
 
-            snapshot_store = (
-                AzureRepositorySnapshotStore()
-            )
+            snapshot_store = AzureRepositorySnapshotStore()
 
         except (
             RepositorySnapshotError,
             OSError,
             ValueError,
         ) as exc:
-            logger.exception(
-                "Repository persistence unavailable"
-            )
+            logger.exception("Repository persistence unavailable")
             raise HTTPException(
                 status_code=503,
-                detail=(
-                    "Repository persistence is "
-                    "unavailable"
-                ),
+                detail=("Repository persistence is unavailable"),
             ) from exc
 
     # Claim this proposal atomically.
@@ -273,17 +255,8 @@ def approve_proposal(
         # across different API workers sharing PostgreSQL.
         with engine.begin() as connection:
             connection.execute(
-                text(
-                    "SELECT pg_advisory_xact_lock("
-                    "hashtextextended(:lock_key, 0)"
-                    ")"
-                ),
-                {
-                    "lock_key": (
-                        "devpilot:patch:"
-                        + repository_id
-                    )
-                },
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+                {"lock_key": ("devpilot:patch:" + repository_id)},
             )
 
             # Check the file again AFTER obtaining
@@ -291,9 +264,7 @@ def approve_proposal(
             diff = preview_patch(root, proposal)
 
             if not diff:
-                raise ValueError(
-                    "Patch contains no changes"
-                )
+                raise ValueError("Patch contains no changes")
 
             application_started = True
 
@@ -304,9 +275,7 @@ def approve_proposal(
             )
 
             if not result.applied:
-                raise RuntimeError(
-                    result.message
-                )
+                raise RuntimeError(result.message)
 
             if snapshot_store is not None:
                 snapshot_store.upload_updated_checkout(
@@ -322,8 +291,7 @@ def approve_proposal(
 
             if not changed:
                 raise RuntimeError(
-                    "Patch persisted, but proposal "
-                    "status could not be finalized"
+                    "Patch persisted, but proposal status could not be finalized"
                 )
 
     except Exception as exc:
@@ -336,8 +304,7 @@ def approve_proposal(
                 )
             except Exception:
                 logger.exception(
-                    "Failed to record patch validation "
-                    "failure: %s",
+                    "Failed to record patch validation failure: %s",
                     proposal_id,
                 )
 
@@ -349,10 +316,7 @@ def approve_proposal(
 
             raise HTTPException(
                 status_code=409,
-                detail=(
-                    "Patch validation failed. "
-                    "No file write was attempted."
-                ),
+                detail=("Patch validation failed. No file write was attempted."),
             ) from exc
 
         # The local file or Blob may already have
@@ -377,8 +341,6 @@ def approve_proposal(
         status="applied",
         message=result.message,
     )
-
-
 
 
 @router.get("/proposals/{proposal_id}/preview")
@@ -445,7 +407,8 @@ def get_proposal_preview(
 
 @router.post("/generate")
 def generate_patch_proposal(
-    request: GeneratePatchRequest, store: PostgresPatchProposalStore = Depends(get_patch_store)
+    request: GeneratePatchRequest,
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 

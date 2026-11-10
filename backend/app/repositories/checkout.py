@@ -1,7 +1,6 @@
-
 import re
 import threading
-from pathlib import Path, PureWindowsPath
+from pathlib import Path
 from uuid import UUID
 
 from app.core import get_settings
@@ -15,10 +14,7 @@ from app.storage.repository_snapshots import (
     RepositorySnapshotError,
 )
 
-
-MANAGED_DIRECTORY = re.compile(
-    r"^github-[0-9a-f]{32}$"
-)
+MANAGED_DIRECTORY = re.compile(r"^github-[0-9a-f]{32}$")
 
 _restore_lock = threading.Lock()
 
@@ -64,9 +60,9 @@ def ensure_repository_checkout(
                 "Only managed GitHub imports can be restored."
             ) from exc
 
-    workspace = Path(
-        get_settings().resolved_github_workspace_dir
-    ).expanduser().resolve()
+    workspace = (
+        Path(get_settings().resolved_github_workspace_dir).expanduser().resolve()
+    )
 
     workspace.mkdir(parents=True, exist_ok=True)
 
@@ -75,9 +71,7 @@ def ensure_repository_checkout(
     with _restore_lock:
         if checkout_path.exists() or checkout_path.is_symlink():
             try:
-                return validate_repository_path(
-                    str(checkout_path)
-                )
+                return validate_repository_path(str(checkout_path))
             except InvalidRepositoryError as exc:
                 raise RepositoryCheckoutUnavailableError(
                     "Managed repository checkout exists but "
@@ -92,9 +86,7 @@ def ensure_repository_checkout(
                 destination=checkout_path,
             )
 
-            return validate_repository_path(
-                str(checkout_path)
-            )
+            return validate_repository_path(str(checkout_path))
 
         except (
             RepositorySnapshotError,
@@ -103,6 +95,5 @@ def ensure_repository_checkout(
             ValueError,
         ) as exc:
             raise RepositoryCheckoutUnavailableError(
-                "Could not restore the GitHub repository "
-                "from Azure Blob Storage."
+                "Could not restore the GitHub repository from Azure Blob Storage."
             ) from exc

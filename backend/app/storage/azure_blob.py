@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from uuid import UUID
@@ -13,12 +12,9 @@ class AzureBlobIndexStore:
         client: BlobServiceClient | None = None,
         container_name: str | None = None,
     ) -> None:
-        self.container_name = (
-            container_name
-            or os.getenv(
-                "AZURE_BLOB_INDEX_CONTAINER",
-                "devpilot-indexes",
-            )
+        self.container_name = container_name or os.getenv(
+            "AZURE_BLOB_INDEX_CONTAINER",
+            "devpilot-indexes",
         )
 
         if client is None:
@@ -28,18 +24,11 @@ class AzureBlobIndexStore:
             ).strip()
 
             if not connection_string:
-                raise ValueError(
-                    "AZURE_STORAGE_CONNECTION_STRING "
-                    "is not configured"
-                )
+                raise ValueError("AZURE_STORAGE_CONNECTION_STRING is not configured")
 
-            client = BlobServiceClient.from_connection_string(
-                connection_string
-            )
+            client = BlobServiceClient.from_connection_string(connection_string)
 
-        self.container = client.get_container_client(
-            self.container_name
-        )
+        self.container = client.get_container_client(self.container_name)
 
     @staticmethod
     def blob_name(
@@ -48,10 +37,7 @@ class AzureBlobIndexStore:
     ) -> str:
         version = UUID(index_version)
 
-        return (
-            f"repositories/{repository_id}/"
-            f"indexes/{version}.json"
-        )
+        return f"repositories/{repository_id}/indexes/{version}.json"
 
     def upload_index(
         self,
@@ -99,15 +85,11 @@ class AzureBlobIndexStore:
             exist_ok=True,
         )
 
-        temporary = destination.with_suffix(
-            destination.suffix + ".download"
-        )
+        temporary = destination.with_suffix(destination.suffix + ".download")
 
         try:
             with temporary.open("wb") as stream:
-                stream.write(
-                    blob.download_blob().readall()
-                )
+                stream.write(blob.download_blob().readall())
 
             temporary.replace(destination)
 

@@ -49,10 +49,10 @@ class Settings(BaseSettings):
     azure_openai_chat_deployment: str = "gpt-4.1-mini"
     azure_openai_embedding_deployment: str = "text-embedding-3-small"
     azure_embedding_dimensions: int = 768
-    #local or Azure embedding selection
+    # local or Azure embedding selection
     embedding_provider: str = "ollama"
 
-    #database & blob storge Azure
+    # database & blob storge Azure
     database_url: SecretStr = SecretStr("")
 
     @property
@@ -86,33 +86,21 @@ class Settings(BaseSettings):
     def validate_production_ai(self):
         if self.environment != "production":
             return self
-        
+
         if self.llm_provider != "openai":
-            raise ValueError(
-                "Production LLM_PROVIDER must be 'openai'"
-            )
-        if self.embedding_provider != 'azure':
-            raise ValueError(
-                "Production EMBEDDING_PROVIDER must be 'azure'"
-            )
+            raise ValueError("Production LLM_PROVIDER must be 'openai'")
+        if self.embedding_provider != "azure":
+            raise ValueError("Production EMBEDDING_PROVIDER must be 'azure'")
         if not self.azure_openai_endpoint:
-            raise ValueError(
-                "AZURE_OPENAI_ENDPOINT is required in production"
-            )
+            raise ValueError("AZURE_OPENAI_ENDPOINT is required in production")
         if not self.azure_openai_api_key.get_secret_value():
-            raise ValueError(
-                "AZURE_OPENAI_API_KEY is required in production"
-            )
+            raise ValueError("AZURE_OPENAI_API_KEY is required in production")
 
         if not self.auth_cookie_secure:
-            raise ValueError(
-                "AUTH_COOKIE_SECURE must be true in production"
-            )
+            raise ValueError("AUTH_COOKIE_SECURE must be true in production")
 
         if not self.auth_password_hash.get_secret_value():
-            raise ValueError(
-                "AUTH_PASSWORD_HASH is required in production"
-            )
+            raise ValueError("AUTH_PASSWORD_HASH is required in production")
         return self
 
 
