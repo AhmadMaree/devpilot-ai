@@ -4,7 +4,7 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.patches.models import PatchProposal
 from app.patches.service import resolve_target
@@ -20,6 +20,8 @@ class GeneratePatchRequest(BaseModel):
 
 
 class GeneratedPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     replacement_content: str
     explanation: str
 
