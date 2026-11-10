@@ -61,13 +61,7 @@ def get_rag_services(
 def ask_question(
     request: QuestionRequest,
 ) -> QuestionsAnswer:
-    settings = get_settings()
-
-    if settings.environment != "development":
-        raise HTTPException(
-            status_code=403,
-            detail="Local RAG is disabled",
-        )
+    get_settings()
 
     repository = resolve_registered_repository(
         request.repository_id,

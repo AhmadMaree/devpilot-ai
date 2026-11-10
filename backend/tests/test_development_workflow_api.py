@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from app.api import development
 from app.api.patches import get_patch_store
 from app.core.security import require_api_key
+from app.llm.models import LLMSelection
 from app.main import app
 from app.patches.models import PatchProposal
 from app.patches.store import PatchProposalStore
@@ -70,14 +71,13 @@ def workflow_api(tmp_path, monkeypatch):
         FakeFactory,
     )
 
-    class FakeLLMSelectionStore:
-        def get(self, fallback):
-            return fallback
-
     monkeypatch.setattr(
         development,
-        "PostgresLLMSelectionStore",
-        FakeLLMSelectionStore,
+        "get_effective_llm_selection",
+        lambda: LLMSelection(
+            provider="openai",
+            model="gpt-4.1-mini",
+        ),
     )
 
     # These tests cover workflow behavior, not API-key authentication.
