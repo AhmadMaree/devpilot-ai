@@ -108,7 +108,6 @@ def register_repository(
 @router.get(
     "",
     response_model=list[Repository],
-    dependencies=[Depends(require_local_environment)],
 )
 def list_repositories(
     store: PostgresRepositoryStore = Depends(get_repository_store),
@@ -119,7 +118,6 @@ def list_repositories(
 @router.get(
     "/{repository_id}",
     response_model=Repository,
-    dependencies=[Depends(require_local_environment)],
 )
 def get_repository(
     repository_id: UUID,
@@ -139,7 +137,6 @@ def get_repository(
 @router.delete(
     "/{repository_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    dependencies=[Depends(require_local_environment)],
 )
 def unregister_repository(
     repository_id: UUID,
@@ -158,7 +155,6 @@ def unregister_repository(
     "/{repository_id}/index",
     response_model=IndexingJob,
     status_code=status.HTTP_202_ACCEPTED,
-    dependencies=[Depends(require_local_environment)],
 )
 def index_registered_repository(
     repository_id: UUID,
@@ -188,7 +184,6 @@ def index_registered_repository(
 @router.get(
     "/{repository_id}/index/status",
     response_model=IndexingJob,
-    dependencies=[Depends(require_local_environment)],
 )
 def get_repository_index_status(
     repository_id: UUID,
@@ -215,7 +210,6 @@ def get_repository_index_status(
 @router.get(
     "/{repository_id}/index",
     response_model=RepositoryIndexMetadata,
-    dependencies=[Depends(require_local_environment)],
 )
 def get_repository_index_metadata(
     repository_id: UUID,
@@ -243,7 +237,6 @@ def get_repository_index_metadata(
     "/import/github",
     response_model=Repository,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_local_environment)],
 )
 def import_github_repository(
     request: ImportGitHubRepositoryRequest,

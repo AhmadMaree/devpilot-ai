@@ -12,14 +12,6 @@ router = APIRouter(
 )
 
 
-def require_development() -> None:
-    if get_settings().environment != "development":
-        raise HTTPException(
-            status_code=403,
-            detail="LLM settings API is disabled",
-        )
-
-
 def get_selection_store() -> PostgresLLMSelectionStore:
     return PostgresLLMSelectionStore()
 
@@ -40,15 +32,13 @@ def get_available_gemini_models() -> set[str]:
 
 
 @router.get("/providers")
-def list_providers(
-    _: None = Depends(require_development),
-):
+def list_providers():
     settings = get_settings()
     return [
         {
             "id": "ollama",
             "name": "Ollama",
-            "available": True,
+            "available": settings.environment == "development",
         },
         {
             "id": "gemini",
@@ -69,7 +59,6 @@ def list_providers(
 @router.get("/models")
 def list_models(
     provider: LLMProviderType = LLMProviderType.OLLAMA,
-    _: None = Depends(require_development),
 ):
     settings = get_settings()
 
@@ -120,7 +109,6 @@ def list_models(
 @router.get("/selection", response_model=LLMSelection)
 def get_selection(
     store: PostgresLLMSelectionStore = Depends(get_selection_store),
-    _: None = Depends(require_development),
 ):
     return store.get(fallback=get_settings().llm_selection)
 
@@ -129,7 +117,6 @@ def get_selection(
 def update_selection(
     selection: LLMSelection,
     store: PostgresLLMSelectionStore = Depends(get_selection_store),
-    _: None = Depends(require_development),
 ):
     settings = get_settings()
     if selection.provider == LLMProviderType.OLLAMA:

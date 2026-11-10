@@ -84,12 +84,6 @@ def investigate(
 ) -> SavedInvestigation:
     settings = get_settings()
 
-    if settings.environment != "development":
-        raise HTTPException(
-            status_code=403,
-            detail="Local agent API is disabled",
-        )
-
     repository = resolve_registered_repository(
         request.repository_id,
         PostgresRepositoryStore(),
@@ -196,12 +190,6 @@ def investigate(
 def list_investigations(
     store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> list[InvestigationSummary]:
-    if get_settings().environment != "development":
-        raise HTTPException(
-            status_code=403,
-            detail="Local agent API is disabled",
-        )
-
     return [
         InvestigationSummary.model_validate(item)
         for item in store.list_recent(limit=20)
@@ -216,12 +204,6 @@ def get_investigation(
     investigation_id: UUID,
     store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> SavedInvestigation:
-    if get_settings().environment != "development":
-        raise HTTPException(
-            status_code=403,
-            detail="Local agent API is disabled",
-        )
-
     saved = store.get_investigation(str(investigation_id))
 
     if saved is None:
