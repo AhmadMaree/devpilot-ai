@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 from uuid import UUID
+from sqlalchemy import text
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -21,8 +22,11 @@ from app.repositories.checkout import (
     ensure_repository_checkout,
     RepositoryCheckoutUnavailableError,
 )
+
+from app.storage.database import get_database_engine
 from app.storage.repository_snapshots import (
     AzureRepositorySnapshotStore,
+    RepositorySnapshotError,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,10 +65,12 @@ def get_patch_store() -> PostgresPatchProposalStore:
 
 
 def require_local_environment() -> None:
-    if get_settings().environment != "development":
+    environment = get_settings().environment
+
+    if environment not in ("development", "production"):
         raise HTTPException(
-            status_code=403,
-            detail="Patch API is disabled",
+            status_code=503,
+            detail="Unsupported application environment",
         )
 
 
@@ -169,114 +175,210 @@ def reject_proposal(
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
+
+@router.post(
+    "/proposals/{proposal_id}/approve",
+    response_model=PatchActionResponse,
+)
+
+@router.post(
+    "/proposals/{proposal_id}/approve",
+    response_model=PatchActionResponse,
+)
 def approve_proposal(
-    proposal_id: UUID, store: PostgresPatchProposalStore = Depends(get_patch_store)
+    proposal_id: UUID,
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
-    propsal = store.get(str(proposal_id))
+    proposal_id_str = str(proposal_id)
+    saved = store.get(proposal_id_str)
 
-    if not propsal:
-        raise HTTPException(404, "proposal_id not found")
+    if saved is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Patch proposal not found",
+        )
 
-    root = get_repository_root(propsal["repository_id"])
+    repository_id = str(saved["repository_id"])
 
-    if not store.claim_for_apply(str(proposal_id)):
+    # Resolve the checkout before claiming the proposal.
+    root = get_repository_root(repository_id)
+
+    proposal = PatchProposal(
+        repository_id=repository_id,
+        file_path=saved["file_path"],
+        expected_sha256=saved["expected_sha256"],
+        replacement_content=saved["replacement_content"],
+        explanation=saved["explanation"],
+    )
+
+    blob_enabled = (
+        os.getenv("AZURE_BLOB_ENABLED", "false")
+        .strip()
+        .lower()
+        == "true"
+    )
+
+    snapshot_store = None
+
+    if blob_enabled:
+        try:
+            AzureRepositorySnapshotStore.blob_name(
+                root.name
+            )
+
+            if not (root / ".git").is_dir():
+                raise RepositorySnapshotError(
+                    "Git metadata is missing"
+                )
+
+            snapshot_store = (
+                AzureRepositorySnapshotStore()
+            )
+
+        except (
+            RepositorySnapshotError,
+            OSError,
+            ValueError,
+        ) as exc:
+            logger.exception(
+                "Repository persistence unavailable"
+            )
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Repository persistence is "
+                    "unavailable"
+                ),
+            ) from exc
+
+    # Claim this proposal atomically.
+    if not store.claim_for_apply(proposal_id_str):
         raise HTTPException(
             status_code=409,
             detail="Proposal is no longer pending",
         )
 
+    application_started = False
+    result = None
+
     try:
-        updatePoposal = PatchProposal(
-            repository_id=propsal["repository_id"],
-            file_path=propsal["file_path"],
-            expected_sha256=propsal["expected_sha256"],
-            replacement_content=propsal["replacement_content"],
-            explanation=propsal["explanation"],
-        )
+        engine = get_database_engine()
 
-        res = apply_approved_patch(
-            repository_root=root, proposal=updatePoposal, approved=True
-        )
-
-        if not res.applied:
-            raise ValueError(res.message)
-
-        blob_enabled = (
-            os.getenv("AZURE_BLOB_ENABLED", "false")
-            .strip()
-            .lower()
-            == "true"
-        )
-
-        if blob_enabled:
-            managed_checkout = (
-                root.name.startswith("github-")
-                and len(root.name) == 39
+        # This transaction holds the advisory lock until
+        # patch application and Blob persistence finish.
+        #
+        # A repository-specific key serializes approvals
+        # across different API workers sharing PostgreSQL.
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "SELECT pg_advisory_xact_lock("
+                    "hashtextextended(:lock_key, 0)"
+                    ")"
+                ),
+                {
+                    "lock_key": (
+                        "devpilot:patch:"
+                        + repository_id
+                    )
+                },
             )
 
-            if not managed_checkout:
-                raise RuntimeError(
-                    "Approved patches require a managed "
-                    "GitHub checkout when Blob Storage "
-                    "persistence is enabled."
+            # Check the file again AFTER obtaining
+            # the repository lock.
+            diff = preview_patch(root, proposal)
+
+            if not diff:
+                raise ValueError(
+                    "Patch contains no changes"
                 )
 
-            snapshot_store = AzureRepositorySnapshotStore()
+            application_started = True
 
-            snapshot_store.upload_updated_checkout(
-                repository_path=root,
+            result = apply_approved_patch(
+                repository_root=root,
+                proposal=proposal,
+                approved=True,
             )
 
+            if not result.applied:
+                raise RuntimeError(
+                    result.message
+                )
 
+            if snapshot_store is not None:
+                snapshot_store.upload_updated_checkout(
+                    repository_path=root,
+                )
 
-    except (OSError, ValueError, UnicodeError) as err:
-        store.set_status(
-            str(proposal_id),
-            expected_status="applying",
-            new_status="failed",
-        )
-        raise HTTPException(409, str(err)) from None
+            # Finalize while still holding the lock.
+            changed = store.set_status(
+                proposal_id_str,
+                expected_status="applying",
+                new_status="applied",
+            )
 
-    except Exception:
+            if not changed:
+                raise RuntimeError(
+                    "Patch persisted, but proposal "
+                    "status could not be finalized"
+                )
+
+    except Exception as exc:
+        if not application_started:
+            try:
+                store.set_status(
+                    proposal_id_str,
+                    expected_status="applying",
+                    new_status="failed",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to record patch validation "
+                    "failure: %s",
+                    proposal_id,
+                )
+
+            logger.warning(
+                "Patch %s rejected before file write",
+                proposal_id,
+                exc_info=True,
+            )
+
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Patch validation failed. "
+                    "No file write was attempted."
+                ),
+            ) from exc
+
+        # The local file or Blob may already have
+        # changed. Keep 'applying' for reconciliation.
         logger.exception(
-            "Patch %s may have changed local files, "
-            "but durable persistence was not confirmed",
+            "Patch %s requires reconciliation",
             proposal_id,
         )
 
         raise HTTPException(
             status_code=503,
             detail=(
-                "Patch persistence could not be confirmed. "
-                "The proposal requires reconciliation "
-                "before another approval attempt."
+                "Patch application or persistence "
+                "could not be confirmed. Proposal "
+                "remains 'applying' and requires "
+                "reconciliation."
             ),
-        ) from None
-
-    
-
-    changed = store.set_status(
-        proposal_id=str(proposal_id),
-        expected_status="applying",
-        new_status="applied",
-    )
-
-    if not changed:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Patch may have been applied, but its status "
-                "could not be recorded. Manual inspection required."
-            ),
-        )
+        ) from exc
 
     return PatchActionResponse(
         id=proposal_id,
         status="applied",
-        message=res.message,
+        message=result.message,
     )
+
+
 
 
 @router.get("/proposals/{proposal_id}/preview")

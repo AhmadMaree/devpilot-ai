@@ -173,7 +173,46 @@ class AzureRepositorySnapshotStore:
                 archive_path, mode="r:gz"
             ) as archive:
                 members = archive.getmembers()
+                seen_paths: set[str] = set()
 
+                for member in members:
+                    name = member.name
+
+                    if (
+                        not name
+                        or "\\" in name
+                        or "\x00" in name
+                        or name.startswith("/")
+                        or ":" in name
+                    ):
+                        raise RepositorySnapshotError(
+                            "Invalid repository archive path"
+                        )
+
+                    relative = PurePosixPath(name)
+
+                    if (
+                        ".." in relative.parts
+                        or "." in relative.parts
+                        or not relative.parts
+                    ):
+                        raise RepositorySnapshotError(
+                            "Unsafe repository archive path"
+                        )
+
+                    normalized = relative.as_posix()
+
+                    if normalized in seen_paths:
+                        raise RepositorySnapshotError(
+                            "Duplicate repository archive entry"
+                        )
+
+                    seen_paths.add(normalized)
+
+                    if not (member.isfile() or member.isdir()):
+                        raise RepositorySnapshotError(
+                            "Unsupported archive entry type"
+                        )
                 # Validate the entire archive before extracting.
                 for member in members:
                     relative = PurePosixPath(member.name)
