@@ -10,7 +10,7 @@ from sqlalchemy import text
 
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
-from app.llm.postgres_store import PostgresLLMSelectionStore
+from app.llm.selection import get_effective_llm_selection
 from app.patches.generation import GeneratePatchRequest, generate_patch
 from app.patches.models import PatchProposal
 from app.patches.postgres_store import PostgresPatchProposalStore
@@ -404,7 +404,7 @@ def generate_patch_proposal(
 ):
     require_local_environment()
 
-    selection = PostgresLLMSelectionStore().get(fallback=get_settings().llm_selection)
+    selection = get_effective_llm_selection()
 
     provider = LLMProviderFactory(selection).create_patch_provider()
 

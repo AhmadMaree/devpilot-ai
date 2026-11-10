@@ -7,9 +7,8 @@ from pydantic import BaseModel, Field
 
 from app.agents.development.runner import run_development_workflow
 from app.api.patches import get_patch_store, require_local_environment
-from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
-from app.llm.postgres_store import PostgresLLMSelectionStore
+from app.llm.selection import get_effective_llm_selection
 from app.patches.postgres_store import PostgresPatchProposalStore
 from app.patches.preview import preview_patch
 from app.repositories.checkout import (
@@ -122,9 +121,7 @@ def create_development_workflow(
         ) from exc
 
     try:
-        selection = PostgresLLMSelectionStore().get(
-            fallback=get_settings().llm_selection
-        )
+        selection = get_effective_llm_selection()
 
         provider = LLMProviderFactory(selection).create_patch_provider()
 
