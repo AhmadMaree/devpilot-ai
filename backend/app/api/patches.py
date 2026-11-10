@@ -175,14 +175,6 @@ def reject_proposal(
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
-@router.post(
-    "/proposals/{proposal_id}/approve",
-    response_model=PatchActionResponse,
-)
-@router.post(
-    "/proposals/{proposal_id}/approve",
-    response_model=PatchActionResponse,
-)
 def approve_proposal(
     proposal_id: UUID,
     store: PostgresPatchProposalStore = Depends(get_patch_store),
