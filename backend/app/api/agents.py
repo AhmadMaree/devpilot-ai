@@ -82,7 +82,7 @@ def investigate(
     request: InvestigationRequest,
     store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> SavedInvestigation:
-    settings = get_settings()
+    get_settings()
 
     repository = resolve_registered_repository(
         request.repository_id,
