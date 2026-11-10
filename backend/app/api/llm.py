@@ -4,7 +4,7 @@ from google import genai
 
 from app.core import get_settings
 from app.llm.models import LLMProviderType, LLMSelection
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
 
 router = APIRouter(
     prefix="/api/v1/llm",
@@ -20,8 +20,8 @@ def require_development() -> None:
         )
 
 
-def get_selection_store() -> LLMSelectionStore:
-    return LLMSelectionStore()
+def get_selection_store() -> PostgresLLMSelectionStore:
+    return PostgresLLMSelectionStore()
 
 
 def get_available_gemini_models() -> set[str]:
@@ -54,6 +54,14 @@ def list_providers(
             "id": "gemini",
             "name": "Google Gemini",
             "available": bool(settings.gemini_api_key),
+        },
+        {
+            "id": "openai",
+            "name": "Azure OpenAI",
+            "available": bool(
+                settings.azure_openai_endpoint
+                and settings.azure_openai_api_key.get_secret_value()
+            ),
         },
     ]
 
@@ -95,6 +103,13 @@ def list_models(
             {"name": name, "size": None}
             for name in sorted(get_available_gemini_models())
         ]
+    elif provider == LLMProviderType.OPENAI:
+        return [
+            {
+                "name": settings.azure_openai_chat_deployment,
+                "size": None,
+            }
+        ]
     else:
         raise HTTPException(
             status_code=422,
@@ -104,7 +119,7 @@ def list_models(
 
 @router.get("/selection", response_model=LLMSelection)
 def get_selection(
-    store: LLMSelectionStore = Depends(get_selection_store),
+    store: PostgresLLMSelectionStore = Depends(get_selection_store),
     _: None = Depends(require_development),
 ):
     return store.get(fallback=get_settings().llm_selection)
@@ -113,7 +128,7 @@ def get_selection(
 @router.put("/selection", response_model=LLMSelection)
 def update_selection(
     selection: LLMSelection,
-    store: LLMSelectionStore = Depends(get_selection_store),
+    store: PostgresLLMSelectionStore = Depends(get_selection_store),
     _: None = Depends(require_development),
 ):
     settings = get_settings()
@@ -138,6 +153,8 @@ def update_selection(
             ) from None
     elif selection.provider == LLMProviderType.GEMINI:
         available_models = get_available_gemini_models()
+    elif selection.provider == LLMProviderType.OPENAI:
+        available_models = {settings.azure_openai_chat_deployment}
     else:
         raise HTTPException(
             status_code=422,
@@ -147,7 +164,7 @@ def update_selection(
     if selection.model not in available_models:
         raise HTTPException(
             status_code=422,
-            detail="Selected model is not installed in Ollama",
+            detail=f"Selected model is not available for this {selection.provider}",
         )
 
     store.save(selection)

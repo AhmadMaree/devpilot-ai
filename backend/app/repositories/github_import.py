@@ -1,16 +1,23 @@
+import logging
 import os
 import re
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Protocol
 from urllib.parse import urlsplit
 from uuid import uuid4
 
 import httpx
+from azure.core.exceptions import AzureError
 
 from app.core import get_settings
+from app.storage.repository_snapshots import (
+    AzureRepositorySnapshotStore,
+    RepositorySnapshotError,
+)
 
-from .store import RepositoryStore
+from .models import Repository
 from .validation import InvalidRepositoryError, validate_repository_path
 
 
@@ -18,7 +25,12 @@ class GitHubImportError(Exception):
     pass
 
 
+class RepositoryWriter(Protocol):
+    def create(self, name: str, path: Path) -> Repository: ...
+
+
 REPOSITORY_COMPONENT = re.compile(r"^[A-Za-z0-9_.-]+$")
+logger = logging.getLogger(__name__)
 
 
 def parse_github_repository_url(url: str) -> tuple[str, str]:
@@ -60,7 +72,7 @@ def parse_github_repository_url(url: str) -> tuple[str, str]:
 
 def import_public_github_repository(
     url: str,
-    store: RepositoryStore,
+    store: RepositoryWriter,
     workspace: Path | None = None,
 ):
     owner, repository_name = parse_github_repository_url(url)
@@ -116,6 +128,8 @@ def import_public_github_repository(
     environment["GIT_CONFIG_VALUE_1"] = ""
 
     registered = False
+    snapshot_uploaded = False
+    snapshot_store = None
 
     try:
         subprocess.run(
@@ -141,6 +155,14 @@ def import_public_github_repository(
         )
 
         validated_path = validate_repository_path(str(destination))
+        blob_enabled = (
+            os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
+        )
+
+        if blob_enabled:
+            snapshot_store = AzureRepositorySnapshotStore()
+            snapshot_store.upload(validated_path)
+            snapshot_uploaded = True
 
         result = store.create(
             name=f"{owner}/{repository_name}",
@@ -152,11 +174,23 @@ def import_public_github_repository(
 
     except subprocess.TimeoutExpired as exc:
         raise GitHubImportError("GitHub clone timed out") from exc
+    except RepositorySnapshotError as exc:
+        raise GitHubImportError(
+            "Could not persist the GitHub repository snapshot"
+        ) from exc
     except subprocess.CalledProcessError as exc:
         raise GitHubImportError("Cann't clone the github repository") from exc
     except (InvalidRepositoryError, OSError) as exc:
         raise GitHubImportError("Could not import the repository") from exc
 
     finally:
-        if not registered and destination.exists():
-            shutil.rmtree(destination)
+        if not registered:
+            if snapshot_uploaded and snapshot_store is not None:
+                try:
+                    snapshot_store.delete(destination.name)
+                except (AzureError, RepositorySnapshotError):
+                    logger.exception(
+                        "Could not delete the unregistered repository snapshot"
+                    )
+            if destination.exists():
+                shutil.rmtree(destination)

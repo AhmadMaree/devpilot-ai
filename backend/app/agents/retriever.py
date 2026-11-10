@@ -1,4 +1,4 @@
-from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.embeddings.base import EmbeddingProvider
 from app.retrieval.local_index import SearchResult
 from app.retrieval.search import RepositorySearch
 
@@ -7,7 +7,7 @@ class RepositoryRetriever:
     def __init__(
         self,
         index: RepositorySearch,
-        embeddings: OllamaEmbeddingProvider,
+        embeddings: EmbeddingProvider,
         index_version: str,
     ):
         self.index = index

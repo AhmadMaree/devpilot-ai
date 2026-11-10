@@ -1,5 +1,4 @@
 import logging
-from pathlib import Path
 from uuid import UUID
 
 import httpx
@@ -10,12 +9,16 @@ from app.agents.development.runner import run_development_workflow
 from app.api.patches import get_patch_store, require_local_environment
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
+from app.patches.postgres_store import PostgresPatchProposalStore
 from app.patches.preview import preview_patch
-from app.patches.store import PatchProposalStore
+from app.repositories.checkout import (
+    RepositoryCheckoutUnavailableError,
+    ensure_repository_checkout,
+)
+from app.repositories.postgres_store import PostgresRepositoryStore
 from app.repositories.resolver import resolve_registered_repository
-from app.repositories.store import RepositoryStore
-from app.storage.development_workflows import DevelopmentWorkflowStore
+from app.storage.postgres_development_workflows import PostgresDevelopmentWorkflowStore
 
 logger = logging.getLogger(__name__)
 
@@ -58,16 +61,16 @@ class DevelopmentWorkflowDetail(DevelopmentWorkflowSummary):
     response: dict
 
 
-def get_workflow_store() -> DevelopmentWorkflowStore:
+def get_workflow_store() -> PostgresDevelopmentWorkflowStore:
     require_local_environment()
-    store = DevelopmentWorkflowStore()
+    store = PostgresDevelopmentWorkflowStore()
     store.initialize()
     return store
 
 
 def save_workflow_history(
     *,
-    history_store: DevelopmentWorkflowStore,
+    history_store: PostgresDevelopmentWorkflowStore,
     request: DevelopmentWorkflowRequest,
     response: DevelopmentWorkflowResponse,
 ) -> None:
@@ -100,20 +103,28 @@ def failed_response(message: str) -> DevelopmentWorkflowResponse:
 )
 def create_development_workflow(
     request: DevelopmentWorkflowRequest,
-    store: PatchProposalStore = Depends(get_patch_store),
-    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
+    history_store: PostgresDevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 
     repository = resolve_registered_repository(
         repository_id=str(request.repository_id),
-        store=RepositoryStore(),
+        store=PostgresRepositoryStore(),
     )
 
-    repository_root = Path(repository.path).resolve()
+    try:
+        repository_root = ensure_repository_checkout(repository)
+    except RepositoryCheckoutUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository checkout is unavailable",
+        ) from exc
 
     try:
-        selection = LLMSelectionStore().get(fallback=get_settings().llm_selection)
+        selection = PostgresLLMSelectionStore().get(
+            fallback=get_settings().llm_selection
+        )
 
         provider = LLMProviderFactory(selection).create_patch_provider()
 
@@ -247,13 +258,13 @@ def list_development_workflows(
     repository_id: UUID,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
+    history_store: PostgresDevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 
     resolve_registered_repository(
         repository_id=str(repository_id),
-        store=RepositoryStore(),
+        store=PostgresRepositoryStore(),
     )
 
     return history_store.list_by_repository(
@@ -269,7 +280,7 @@ def list_development_workflows(
 )
 def get_development_workflow(
     workflow_id: UUID,
-    history_store: DevelopmentWorkflowStore = Depends(get_workflow_store),
+    history_store: PostgresDevelopmentWorkflowStore = Depends(get_workflow_store),
 ):
     require_local_environment()
 
@@ -283,7 +294,7 @@ def get_development_workflow(
 
     resolve_registered_repository(
         repository_id=workflow["repository_id"],
-        store=RepositoryStore(),
+        store=PostgresRepositoryStore(),
     )
 
     return workflow

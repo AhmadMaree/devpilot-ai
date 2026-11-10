@@ -1,20 +1,32 @@
 import logging
+import os
 from pathlib import Path
 from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app.core import get_settings
 from app.llm.factory import LLMProviderFactory
-from app.llm.store import LLMSelectionStore
+from app.llm.postgres_store import PostgresLLMSelectionStore
 from app.patches.generation import GeneratePatchRequest, generate_patch
+from app.patches.models import PatchProposal
+from app.patches.postgres_store import PostgresPatchProposalStore
 from app.patches.preview import preview_patch
 from app.patches.service import apply_approved_patch
-from app.patches.store import PatchProposal, PatchProposalStore
+from app.repositories.checkout import (
+    RepositoryCheckoutUnavailableError,
+    ensure_repository_checkout,
+)
+from app.repositories.postgres_store import PostgresRepositoryStore
 from app.repositories.resolver import resolve_registered_repository
-from app.repositories.store import RepositoryStore
+from app.storage.database import get_database_engine
+from app.storage.repository_snapshots import (
+    AzureRepositorySnapshotStore,
+    RepositorySnapshotError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -43,32 +55,40 @@ class PatchProposalSummary(BaseModel):
     created_at: str
 
 
-def get_patch_store() -> PatchProposalStore:
+def get_patch_store() -> PostgresPatchProposalStore:
     require_local_environment()
 
-    store = PatchProposalStore()
+    store = PostgresPatchProposalStore()
     store.initialize()
     return store
 
 
 def require_local_environment() -> None:
-    if get_settings().environment != "development":
+    environment = get_settings().environment
+
+    if environment not in ("development", "production"):
         raise HTTPException(
-            status_code=403,
-            detail="Patch API is disabled",
+            status_code=503,
+            detail="Unsupported application environment",
         )
 
 
 def get_repository_root(repository_id: str) -> Path:
     repository = resolve_registered_repository(
-        repository_id=repository_id, store=RepositoryStore()
+        repository_id=repository_id, store=PostgresRepositoryStore()
     )
-    return Path(repository.path).resolve()
+    try:
+        return ensure_repository_checkout(repository)
+    except RepositoryCheckoutUnavailableError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Repository checkout is unavailable",
+        ) from exc
 
 
 @router.post("/proposals", response_model=PatchCreateResponse)
 def create_proposals(
-    request: PatchProposal, store: PatchProposalStore = Depends(get_patch_store)
+    request: PatchProposal, store: PostgresPatchProposalStore = Depends(get_patch_store)
 ):
     require_local_environment()
     root = get_repository_root(request.repository_id)
@@ -91,7 +111,7 @@ def list_proposals(
     repository_id: UUID,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
     get_repository_root(str(repository_id))
@@ -104,7 +124,7 @@ def list_proposals(
 @router.get("/proposals/{proposal_id}")
 def get_proposal(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
     proposal = store.get(str(proposal_id))
@@ -128,7 +148,7 @@ def get_proposal(
 )
 def reject_proposal(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
@@ -155,74 +175,178 @@ def reject_proposal(
 
 
 @router.post("/proposals/{proposal_id}/approve", response_model=PatchActionResponse)
+@router.post(
+    "/proposals/{proposal_id}/approve",
+    response_model=PatchActionResponse,
+)
+@router.post(
+    "/proposals/{proposal_id}/approve",
+    response_model=PatchActionResponse,
+)
 def approve_proposal(
-    proposal_id: UUID, store: PatchProposalStore = Depends(get_patch_store)
+    proposal_id: UUID,
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
-    propsal = store.get(str(proposal_id))
+    proposal_id_str = str(proposal_id)
+    saved = store.get(proposal_id_str)
 
-    if not propsal:
-        raise HTTPException(404, "proposal_id not found")
+    if saved is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Patch proposal not found",
+        )
 
-    root = get_repository_root(propsal["repository_id"])
+    repository_id = str(saved["repository_id"])
 
-    if not store.claim_for_apply(str(proposal_id)):
+    # Resolve the checkout before claiming the proposal.
+    root = get_repository_root(repository_id)
+
+    proposal = PatchProposal(
+        repository_id=repository_id,
+        file_path=saved["file_path"],
+        expected_sha256=saved["expected_sha256"],
+        replacement_content=saved["replacement_content"],
+        explanation=saved["explanation"],
+    )
+
+    blob_enabled = os.getenv("AZURE_BLOB_ENABLED", "false").strip().lower() == "true"
+
+    snapshot_store = None
+
+    if blob_enabled:
+        try:
+            AzureRepositorySnapshotStore.blob_name(root.name)
+
+            if not (root / ".git").is_dir():
+                raise RepositorySnapshotError("Git metadata is missing")
+
+            snapshot_store = AzureRepositorySnapshotStore()
+
+        except (
+            RepositorySnapshotError,
+            OSError,
+            ValueError,
+        ) as exc:
+            logger.exception("Repository persistence unavailable")
+            raise HTTPException(
+                status_code=503,
+                detail=("Repository persistence is unavailable"),
+            ) from exc
+
+    # Claim this proposal atomically.
+    if not store.claim_for_apply(proposal_id_str):
         raise HTTPException(
             status_code=409,
             detail="Proposal is no longer pending",
         )
 
+    application_started = False
+    result = None
+
     try:
-        updatePoposal = PatchProposal(
-            repository_id=propsal["repository_id"],
-            file_path=propsal["file_path"],
-            expected_sha256=propsal["expected_sha256"],
-            replacement_content=propsal["replacement_content"],
-            explanation=propsal["explanation"],
+        engine = get_database_engine()
+
+        # This transaction holds the advisory lock until
+        # patch application and Blob persistence finish.
+        #
+        # A repository-specific key serializes approvals
+        # across different API workers sharing PostgreSQL.
+        with engine.begin() as connection:
+            connection.execute(
+                text("SELECT pg_advisory_xact_lock(hashtextextended(:lock_key, 0))"),
+                {"lock_key": ("devpilot:patch:" + repository_id)},
+            )
+
+            # Check the file again AFTER obtaining
+            # the repository lock.
+            diff = preview_patch(root, proposal)
+
+            if not diff:
+                raise ValueError("Patch contains no changes")
+
+            application_started = True
+
+            result = apply_approved_patch(
+                repository_root=root,
+                proposal=proposal,
+                approved=True,
+            )
+
+            if not result.applied:
+                raise RuntimeError(result.message)
+
+            if snapshot_store is not None:
+                snapshot_store.upload_updated_checkout(
+                    repository_path=root,
+                )
+
+            # Finalize while still holding the lock.
+            changed = store.set_status(
+                proposal_id_str,
+                expected_status="applying",
+                new_status="applied",
+            )
+
+            if not changed:
+                raise RuntimeError(
+                    "Patch persisted, but proposal status could not be finalized"
+                )
+
+    except Exception as exc:
+        if not application_started:
+            try:
+                store.set_status(
+                    proposal_id_str,
+                    expected_status="applying",
+                    new_status="failed",
+                )
+            except Exception:
+                logger.exception(
+                    "Failed to record patch validation failure: %s",
+                    proposal_id,
+                )
+
+            logger.warning(
+                "Patch %s rejected before file write",
+                proposal_id,
+                exc_info=True,
+            )
+
+            raise HTTPException(
+                status_code=409,
+                detail=("Patch validation failed. No file write was attempted."),
+            ) from exc
+
+        # The local file or Blob may already have
+        # changed. Keep 'applying' for reconciliation.
+        logger.exception(
+            "Patch %s requires reconciliation",
+            proposal_id,
         )
 
-        res = apply_approved_patch(
-            repository_root=root, proposal=updatePoposal, approved=True
-        )
-
-        if not res.applied:
-            raise ValueError(res.message)
-
-    except (OSError, ValueError, UnicodeError) as err:
-        store.set_status(
-            str(proposal_id),
-            expected_status="applying",
-            new_status="failed",
-        )
-        raise HTTPException(409, str(err)) from None
-
-    changed = store.set_status(
-        proposal_id=str(proposal_id),
-        expected_status="applying",
-        new_status="applied",
-    )
-
-    if not changed:
         raise HTTPException(
-            status_code=500,
+            status_code=503,
             detail=(
-                "Patch may have been applied, but its status "
-                "could not be recorded. Manual inspection required."
+                "Patch application or persistence "
+                "could not be confirmed. Proposal "
+                "remains 'applying' and requires "
+                "reconciliation."
             ),
-        )
+        ) from exc
 
     return PatchActionResponse(
         id=proposal_id,
         status="applied",
-        message=res.message,
+        message=result.message,
     )
 
 
 @router.get("/proposals/{proposal_id}/preview")
 def get_proposal_preview(
     proposal_id: UUID,
-    store: PatchProposalStore = Depends(get_patch_store),
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
@@ -283,11 +407,12 @@ def get_proposal_preview(
 
 @router.post("/generate")
 def generate_patch_proposal(
-    request: GeneratePatchRequest, store: PatchProposalStore = Depends(get_patch_store)
+    request: GeneratePatchRequest,
+    store: PostgresPatchProposalStore = Depends(get_patch_store),
 ):
     require_local_environment()
 
-    selection = LLMSelectionStore().get(fallback=get_settings().llm_selection)
+    selection = PostgresLLMSelectionStore().get(fallback=get_settings().llm_selection)
 
     provider = LLMProviderFactory(selection).create_patch_provider()
 

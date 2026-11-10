@@ -8,7 +8,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 
 from app.auth.passwords import verify_password
-from app.auth.sessions import (
+from app.auth.postgres_sessions import (
     Session,
     clear_login_failures,
     create_session,

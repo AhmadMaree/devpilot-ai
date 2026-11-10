@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.llm.models import LLMSelection
@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_base_url: str = "https://generativelanguage.googleapis.com/v1beta"
 
-    github_workspace_dir: Path = Path("D:/Projects/devpilot-managed-repositories")
+    github_workspace_dir: Path = Path("repositories")
 
     # Storage
     data_dir: Path = BACKEND_ROOT / "data"
@@ -40,6 +40,20 @@ class Settings(BaseSettings):
     auth_session_hours: int = 12
     auth_cookie_secure: bool = False
     auth_browser_origin: str = "http://localhost:8080"
+
+    # Azure OpenAI / Microsoft Foundry
+    azure_openai_endpoint: str = ""
+    azure_openai_api_key: SecretStr = SecretStr("")
+    azure_openai_api_version: str = "2024-10-21"
+
+    azure_openai_chat_deployment: str = "gpt-4.1-mini"
+    azure_openai_embedding_deployment: str = "text-embedding-3-small"
+    azure_embedding_dimensions: int = 768
+    # local or Azure embedding selection
+    embedding_provider: str = "ollama"
+
+    # database & blob storge Azure
+    database_url: SecretStr = SecretStr("")
 
     @property
     def llm_selection(self) -> LLMSelection:
@@ -67,6 +81,27 @@ class Settings(BaseSettings):
     @property
     def indexes_dir(self) -> Path:
         return self.resolved_data_dir / "indexes"
+
+    @model_validator(mode="after")
+    def validate_production_ai(self):
+        if self.environment != "production":
+            return self
+
+        if self.llm_provider != "openai":
+            raise ValueError("Production LLM_PROVIDER must be 'openai'")
+        if self.embedding_provider != "azure":
+            raise ValueError("Production EMBEDDING_PROVIDER must be 'azure'")
+        if not self.azure_openai_endpoint:
+            raise ValueError("AZURE_OPENAI_ENDPOINT is required in production")
+        if not self.azure_openai_api_key.get_secret_value():
+            raise ValueError("AZURE_OPENAI_API_KEY is required in production")
+
+        if not self.auth_cookie_secure:
+            raise ValueError("AUTH_COOKIE_SECURE must be true in production")
+
+        if not self.auth_password_hash.get_secret_value():
+            raise ValueError("AUTH_PASSWORD_HASH is required in production")
+        return self
 
 
 @lru_cache

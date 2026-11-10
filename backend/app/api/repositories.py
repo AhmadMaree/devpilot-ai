@@ -1,7 +1,7 @@
-import sqlite3
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.exc import IntegrityError
 
 from app.core import get_settings
 from app.repositories.github_import import (
@@ -14,16 +14,16 @@ from app.repositories.index_jobs import (
     IndexingJob,
     IndexJobQueueFullError,
 )
-from app.repositories.index_store import (
-    RepositoryIndexMetadata,
-    RepositoryIndexStore,
-)
+from app.repositories.index_store import RepositoryIndexMetadata
 from app.repositories.models import (
     ImportGitHubRepositoryRequest,
     RegisterRepositoryRequest,
     Repository,
 )
-from app.repositories.store import RepositoryStore
+from app.repositories.postgres_index_store import (
+    PostgresRepositoryIndexStore,
+)
+from app.repositories.postgres_store import PostgresRepositoryStore
 from app.repositories.validation import (
     InvalidRepositoryError,
     validate_repository_path,
@@ -45,14 +45,32 @@ def require_local_environment() -> None:
         )
 
 
-def get_repository_store() -> RepositoryStore:
-    store = RepositoryStore()
-    store.initialize()
-    return store
+def get_repository_store() -> PostgresRepositoryStore:
+    return PostgresRepositoryStore()
 
 
-def get_index_job_manager(request: Request) -> RepositoryIndexJobManager:
+def get_repository_index_store() -> PostgresRepositoryIndexStore:
+    return PostgresRepositoryIndexStore()
+
+
+def get_index_job_manager(
+    request: Request,
+) -> RepositoryIndexJobManager:
     return request.app.state.index_job_manager
+
+
+def is_duplicate_repository_error(exc: IntegrityError) -> bool:
+    """Identify the PostgreSQL unique-path constraint."""
+    original = exc.orig
+
+    return getattr(original, "sqlstate", None) == "23505" and getattr(
+        getattr(original, "diag", None),
+        "constraint_name",
+        None,
+    ) in {
+        "repositories_path_key",
+        "repositories_pkey",
+    }
 
 
 @router.post(
@@ -63,7 +81,7 @@ def get_index_job_manager(request: Request) -> RepositoryIndexJobManager:
 )
 def register_repository(
     request: RegisterRepositoryRequest,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
 ) -> Repository:
     try:
         repository_path = validate_repository_path(request.path)
@@ -78,11 +96,13 @@ def register_repository(
             name=request.name.strip(),
             path=repository_path,
         )
-    except sqlite3.IntegrityError:
-        raise HTTPException(
-            status_code=409,
-            detail="This repository is already registered",
-        ) from None
+    except IntegrityError as exc:
+        if is_duplicate_repository_error(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="This repository is already registered",
+            ) from exc
+        raise
 
 
 @router.get(
@@ -91,7 +111,7 @@ def register_repository(
     dependencies=[Depends(require_local_environment)],
 )
 def list_repositories(
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
 ) -> list[Repository]:
     return store.list_all()
 
@@ -103,9 +123,10 @@ def list_repositories(
 )
 def get_repository(
     repository_id: UUID,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
 ) -> Repository:
     repository = store.get(repository_id)
+
     if repository is None:
         raise HTTPException(
             status_code=404,
@@ -122,7 +143,7 @@ def get_repository(
 )
 def unregister_repository(
     repository_id: UUID,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
 ) -> None:
     deleted = store.delete(repository_id)
 
@@ -141,9 +162,9 @@ def unregister_repository(
 )
 def index_registered_repository(
     repository_id: UUID,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
     manager: RepositoryIndexJobManager = Depends(get_index_job_manager),
-):
+) -> IndexingJob:
     if store.get(repository_id) is None:
         raise HTTPException(
             status_code=404,
@@ -171,9 +192,9 @@ def index_registered_repository(
 )
 def get_repository_index_status(
     repository_id: UUID,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
     manager: RepositoryIndexJobManager = Depends(get_index_job_manager),
-):
+) -> IndexingJob:
     if store.get(repository_id) is None:
         raise HTTPException(
             status_code=404,
@@ -181,11 +202,13 @@ def get_repository_index_status(
         )
 
     job = manager.latest(repository_id)
+
     if job is None:
         raise HTTPException(
             status_code=404,
             detail="No indexing job found",
         )
+
     return job
 
 
@@ -196,20 +219,23 @@ def get_repository_index_status(
 )
 def get_repository_index_metadata(
     repository_id: UUID,
-    store: RepositoryStore = Depends(get_repository_store),
-):
+    store: PostgresRepositoryStore = Depends(get_repository_store),
+    index_store: PostgresRepositoryIndexStore = Depends(get_repository_index_store),
+) -> RepositoryIndexMetadata:
     if store.get(repository_id) is None:
         raise HTTPException(
             status_code=404,
             detail="Repository not found",
         )
 
-    metadata = RepositoryIndexStore(db_path=store.db_path).get(repository_id)
+    metadata = index_store.get(repository_id)
+
     if metadata is None:
         raise HTTPException(
             status_code=404,
             detail="Repository has not been indexed",
         )
+
     return metadata
 
 
@@ -221,14 +247,22 @@ def get_repository_index_metadata(
 )
 def import_github_repository(
     request: ImportGitHubRepositoryRequest,
-    store: RepositoryStore = Depends(get_repository_store),
+    store: PostgresRepositoryStore = Depends(get_repository_store),
 ) -> Repository:
     try:
-        return import_public_github_repository(url=request.url, store=store)
+        return import_public_github_repository(
+            url=request.url,
+            store=store,
+        )
     except GitHubImportError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except sqlite3.IntegrityError:
         raise HTTPException(
-            status_code=409,
-            detail="Repository is already registered",
-        ) from None
+            status_code=422,
+            detail=str(exc),
+        ) from exc
+    except IntegrityError as exc:
+        if is_duplicate_repository_error(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Repository is already registered",
+            ) from exc
+        raise

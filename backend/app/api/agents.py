@@ -17,21 +17,24 @@ from app.agents.models import (
 )
 from app.agents.retriever import RepositoryRetriever
 from app.core import get_settings
-from app.embeddings.ollama import OllamaEmbeddingProvider
+from app.embeddings.factory import (
+    create_embedding_provider,
+    get_embedding_provider_name,
+)
 from app.llm.factory import LLMProviderFactory
 from app.llm.models import LLMSelection
-from app.llm.store import LLMSelectionStore
+from app.llm.selection import get_effective_llm_selection
 from app.repositories.index_service import (
     RepositoryIndexNotFoundError,
 )
+from app.repositories.postgres_store import PostgresRepositoryStore
 from app.repositories.resolver import resolve_registered_repository
-from app.repositories.store import RepositoryStore
 from app.retrieval.factory import (
     create_repository_search,
     get_active_index_version,
     get_retrieval_backend,
 )
-from app.storage.investigations import InvestigationStore
+from app.storage.postgres_investigations import PostgresInvestigationStore
 
 router = APIRouter(prefix="/api/v1/agents", tags=["Agents"])
 logger = logging.getLogger(__name__)
@@ -44,13 +47,14 @@ def get_investigation_graph(
     model: str,
     index_version: str,
     retrieval_backend: str,
+    embedding_provider: str,
 ):
     retriever = RepositoryRetriever(
         index=create_repository_search(
             repository_id=repository_id,
             backend=retrieval_backend,
         ),
-        embeddings=OllamaEmbeddingProvider(),
+        embeddings=create_embedding_provider(),
         index_version=index_version,
     )
 
@@ -67,8 +71,8 @@ def get_investigation_graph(
     )
 
 
-def get_investigation_store() -> InvestigationStore:
-    store = InvestigationStore()
+def get_investigation_store() -> PostgresInvestigationStore:
+    store = PostgresInvestigationStore()
     store.initialize()
     return store
 
@@ -76,7 +80,7 @@ def get_investigation_store() -> InvestigationStore:
 @router.post("/investigate", response_model=SavedInvestigation)
 def investigate(
     request: InvestigationRequest,
-    store: InvestigationStore = Depends(get_investigation_store),
+    store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> SavedInvestigation:
     settings = get_settings()
 
@@ -88,10 +92,10 @@ def investigate(
 
     repository = resolve_registered_repository(
         request.repository_id,
-        RepositoryStore(),
+        PostgresRepositoryStore(),
     )
 
-    selection = LLMSelectionStore().get(fallback=settings.llm_selection)
+    selection = get_effective_llm_selection()
     try:
         retrieval_backend = get_retrieval_backend()
         active_version = get_active_index_version(repository.id, retrieval_backend)
@@ -101,6 +105,7 @@ def investigate(
             model=selection.model,
             index_version=active_version,
             retrieval_backend=retrieval_backend,
+            embedding_provider=get_embedding_provider_name(),
         )
 
         result = graph.invoke(
@@ -189,7 +194,7 @@ def investigate(
     response_model=list[InvestigationSummary],
 )
 def list_investigations(
-    store: InvestigationStore = Depends(get_investigation_store),
+    store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> list[InvestigationSummary]:
     if get_settings().environment != "development":
         raise HTTPException(
@@ -209,7 +214,7 @@ def list_investigations(
 )
 def get_investigation(
     investigation_id: UUID,
-    store: InvestigationStore = Depends(get_investigation_store),
+    store: PostgresInvestigationStore = Depends(get_investigation_store),
 ) -> SavedInvestigation:
     if get_settings().environment != "development":
         raise HTTPException(
