@@ -18,6 +18,7 @@ coverage/
 .env.*
 !.env.example
 !.env.production
+!.env.docker.example
 .env.docker
 
 # Editors

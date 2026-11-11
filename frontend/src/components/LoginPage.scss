@@ -21,6 +21,23 @@
     margin: 0;
   }
 
+  .login-demo-hint {
+    margin: -8px 0 0;
+    color: #64748b;
+    font-size: 0.875rem;
+
+    code {
+      color: #334155;
+    }
+  }
+
+  .login-privacy-notice {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
   input {
     padding: 12px 14px;
     border: 1px solid #cbd5e1;
