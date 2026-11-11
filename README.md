@@ -6,8 +6,7 @@
 
 Built with **LangGraph, FastAPI, React, Azure OpenAI, and Azure AI Search**, DevPilot AI connects repository knowledge with AI-assisted investigation, code generation, and review workflows.
 
-**[Live Demo](https://devpilot-frontend-dev.bravegrass-915607b9.italynorth.azurecontainerapps.io)** | **[GitHub Repository](https://github.com/AhmadMaree/devpilot-ai)**
-
+**[Live Demo](https://devpilot-frontend-dev.bravegrass-915607b9.italynorth.azurecontainerapps.io)** | **[GitHub Repository](https://github.com/AhmadMaree/devpilot-ai)** | **[DevPoilt AI - System Architecture](docs/DevPilot%20AI%20System%20Architecture.png)**
 ---
 
 ## Overview
@@ -84,49 +83,11 @@ Developers can import a GitHub repository, explore its contents using natural la
 ---
 
 ## System Architecture
+The following diagram illustrates the architecture of DevPilot AI,
+including the frontend, backend, multi-agent workflows,
+RAG pipeline, Azure services, and CI pipeline.
 
-DevPilot AI separates its user interface, backend APIs, AI workflows, and cloud data services.
-
-```text
-                 Developer / Browser
-                          |
-                          v
-                React + TypeScript
-                    Frontend
-                          |
-                          v
-                  FastAPI Backend
-                          |
-            +-------------+-------------+
-            |             |             |
-            v             v             v
-       Repository       Codebase      Investigation
-        Ingestion         Q&A           Workflow
-            |             |             |
-            v             v             v
-       Azure Blob     Azure AI       LangGraph
-        Storage        Search          Agents
-            |             |             |
-            +-------------+-------------+
-                          |
-                          v
-                    Azure OpenAI
-                          |
-                          v
-                  Developer Agent
-                          |
-                          v
-                  Proposed Code Patch
-                          |
-                          v
-                  Review / QA / Approval
-
-       PostgreSQL — Application Persistence
-       Azure Container Apps — Cloud Hosting
-       GitHub Actions — Continuous Integration
-```
-
-The frontend and backend are deployed as separate Azure Container Apps.
+![DevPilot AI System Architecture](docs/architecture.svg)
 
 ---
 
@@ -306,34 +267,6 @@ A typical DevPilot AI workflow is:
 **Where is repository ingestion implemented, and how does the API trigger it?**
 
 This demonstrates repository retrieval, code understanding, and contextual question answering.
-
----
-
-## Current Scope and Limitations
-
-DevPilot AI is a capstone engineering project focused on practical AI-assisted development workflows.
-
-Current considerations include:
-
-- The application uses a private authenticated workspace.
-- Generated patches require human review and validation.
-- Deployment to Azure Container Apps is managed separately from CI.
-- AI-generated results depend on the selected model and retrieved repository context.
-- Production-grade multi-user isolation and fully automated delivery are outside the current project scope.
-
----
-
-## Future Improvements
-
-Potential enhancements include:
-
-- Automated pull-request creation.
-- GitHub webhook integrations.
-- Expanded automated patch testing.
-- More advanced code-review evaluation.
-- Multi-user workspaces with repository-level access controls.
-- Additional observability and agent execution tracing.
-- Fully automated Azure deployment.
 
 ---
 
