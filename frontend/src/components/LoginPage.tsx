@@ -49,6 +49,10 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           disabled={loading}
         />
 
+        <p className="login-demo-hint">
+          Demo password: <code>ahmadmarei123!@#</code>
+        </p>
+
         {error && <p role="alert">{error}</p>}
 
         <button type="submit" disabled={loading}>
