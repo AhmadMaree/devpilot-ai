@@ -53,6 +53,12 @@ export function LoginPage({ onLogin }: LoginPageProps) {
           Demo password: <code>ahmadmarei123!@#</code>
         </p>
 
+        <p className="login-privacy-notice" role="note">
+          Successful demo sign-ins are emailed to the application owner. The
+          alert includes only the sign-in time and a coarse browser/device
+          category; it does not include your IP address or full browser details.
+        </p>
+
         {error && <p role="alert">{error}</p>}
 
         <button type="submit" disabled={loading}>

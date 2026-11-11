@@ -1,5 +1,6 @@
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     HTTPException,
     Request,
@@ -7,6 +8,7 @@ from fastapi import (
 )
 from pydantic import BaseModel, Field
 
+from app.auth.login_alerts import send_login_alert
 from app.auth.passwords import verify_password
 from app.auth.postgres_sessions import (
     Session,
@@ -63,6 +65,7 @@ def login(
     credentials: LoginRequest,
     request: Request,
     response: Response,
+    background_tasks: BackgroundTasks,
 ) -> AuthResponse:
     same_origin_required(request)
 
@@ -98,6 +101,10 @@ def login(
         revoke_session(old_token)
 
     token, session = create_session()
+    background_tasks.add_task(
+        send_login_alert,
+        request.headers.get("user-agent", ""),
+    )
 
     response.set_cookie(
         key=SESSION_COOKIE,

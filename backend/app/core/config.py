@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     auth_session_hours: int = 12
     auth_cookie_secure: bool = False
     auth_browser_origin: str = "http://localhost:8080"
+    login_alert_email: str = "ahmadmarei1998@gmail.com"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: SecretStr = SecretStr("")
+    smtp_from_email: str = ""
+    smtp_use_ssl: bool = False
+    smtp_use_starttls: bool = True
 
     # Azure OpenAI / Microsoft Foundry
     azure_openai_endpoint: str = ""
